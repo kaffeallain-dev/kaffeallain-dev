@@ -1,0 +1,6 @@
+{
+  "name": "MboaFit",
+  "description": "MboaFit is a nutrition and weight-management coach designed for Cameroonian students.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

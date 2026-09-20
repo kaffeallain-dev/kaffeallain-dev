@@ -1,0 +1,618 @@
+import React, { useState, useMemo } from "react";
+import { useData } from "../context/DataContext";
+import { ConsumptionRecord, MealCategory, FoodItemTemplate } from "../types";
+import {
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  Edit2,
+  X,
+  Check,
+  Zap,
+  Clock,
+  TrendingUp,
+  Award,
+  AlertCircle,
+  Lightbulb,
+  Settings
+} from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { format, isToday, isYesterday, addDays, subDays } from "date-fns";
+import * as db from "../lib/db";
+import { getProfileCompletion } from "../lib/personalization";
+import { commonFoods } from "../data/foodDatabase";
+import { RecommendationEngine, MealAnalysisResult } from "../lib/RecommendationEngine";
+
+const STUDENT_TIPS = [
+  "Weight loss tip: Choosing boiled plantains over fried can save you up to 200 daily calories.",
+  "Mboa Coach: Start your day with a protein-rich meal like an omelette instead of just Pap to stay full longer.",
+  "Quick tip: Logging your meals daily is the #1 way to stay mindful of your weight goals on campus.",
+  "Remember to drink water! It helps digest heavy starches like Fufu or Garri and keeps you feeling full.",
+  "Craving a snack? Try boiled groundnuts instead of puff puff for better sustained energy.",
+];
+
+function MealAnalysisCard({ analysis }: { analysis: MealAnalysisResult | undefined }) {
+  if (!analysis) return null;
+
+  return (
+    <div className="mt-4 p-4 rounded-xl bg-blue-50 border border-blue-100 flex flex-col gap-3 text-sm">
+      <div className="flex items-start gap-2">
+        <Award className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+        <div>
+          <span className="font-bold text-blue-900 block mb-0.5">Biggest Win</span>
+          <span className="text-blue-800">{analysis.positiveChoice}</span>
+        </div>
+      </div>
+      <div className="flex items-start gap-2">
+        <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+        <div>
+          <span className="font-bold text-amber-900 block mb-0.5">Area for Improvement</span>
+          <span className="text-amber-800">{analysis.improvement}</span>
+        </div>
+      </div>
+      <div className="flex items-start gap-2">
+        <TrendingUp className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
+        <div>
+          <span className="font-bold text-purple-900 block mb-0.5">Goal Evaluation</span>
+          <span className="text-purple-800">{analysis.goalImpact}</span>
+        </div>
+      </div>
+      <div className="flex items-start gap-2">
+        <Lightbulb className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+        <div>
+          <span className="font-bold text-emerald-900 block mb-0.5">Next Recommendation</span>
+          <span className="text-emerald-800">{analysis.nextSuggestion}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function DashboardView({
+  onLogFood,
+  onOpenSettings,
+}: {
+  onLogFood: (meal: MealCategory, food?: any) => void;
+  onOpenSettings: () => void;
+}) {
+  const {
+    settings,
+    selectedDate,
+    setSelectedDate,
+    selectedDateConsumptions,
+    allConsumptions,
+    customFoods,
+    deleteConsumption,
+    refreshData,
+  } = useData();
+  const [editingItem, setEditingItem] = useState<ConsumptionRecord | null>(
+    null,
+  );
+  const [editServings, setEditServings] = useState("");
+
+  const totalCalories = selectedDateConsumptions.reduce(
+    (sum, item) => sum + item.calories,
+    0,
+  );
+  const remainingCalories = Math.max(0, settings.dailyGoal - totalCalories);
+  const progressPercentage = Math.min(
+    100,
+    (totalCalories / settings.dailyGoal) * 100,
+  );
+
+  const mealCategories: MealCategory[] = [
+    "Breakfast",
+    "Lunch",
+    "Dinner",
+    "Snacks",
+  ];
+
+  const getProgressBg = () => {
+    if (progressPercentage <= 50) return "bg-emerald-500";
+    if (progressPercentage <= 85) return "bg-emerald-400";
+    if (progressPercentage <= 100) return "bg-amber-400";
+    return "bg-red-500";
+  };
+
+  const getDisplayDate = () => {
+    if (isToday(selectedDate)) return "Today";
+    if (isYesterday(selectedDate)) return "Yesterday";
+    return format(selectedDate, "EEEE, MMM do");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingItem) return;
+    const num = parseFloat(editServings);
+    if (!isNaN(num) && num > 0) {
+      const ratio = num / editingItem.servings;
+      const updatedItem = {
+        ...editingItem,
+        servings: num,
+        calories: editingItem.calories * ratio,
+        protein: (editingItem.protein || 0) * ratio,
+        carbs: (editingItem.carbs || 0) * ratio,
+        fat: (editingItem.fat || 0) * ratio,
+      };
+      await db.updateConsumption(updatedItem);
+      await refreshData();
+    }
+    setEditingItem(null);
+  };
+
+  // 1. Core Recommendation Engine
+  const recommendation = useMemo(() => {
+    return RecommendationEngine.generate(
+      settings.profile,
+      selectedDateConsumptions,
+      allConsumptions,
+      settings.dailyGoal
+    );
+  }, [
+    selectedDateConsumptions,
+    allConsumptions,
+    settings.dailyGoal,
+    settings.profile,
+  ]);
+
+  const dailySummary = useMemo(() => {
+    return RecommendationEngine.getDailySummary(
+      settings.profile,
+      selectedDateConsumptions,
+      settings.dailyGoal
+    );
+  }, [
+    selectedDateConsumptions,
+    settings.dailyGoal,
+    settings.profile,
+  ]);
+
+  // 2. Quick Log Student Favorites
+  const quickLogFavorites = useMemo(() => {
+    const targets = [
+      "Indomie and Egg",
+      "Beans and Bread (Haricot-Pain)",
+      "Rice and Stew",
+      "Puff Puff and Beans",
+      "Director's Meal",
+      "Corn Chaff",
+    ];
+    return targets
+      .map((t) => commonFoods.find((f) => f.name === t))
+      .filter(Boolean)
+      .slice(0, 4) as FoodItemTemplate[];
+  }, []);
+
+  // 4. Recent Foods
+  const recentFoods = useMemo(() => {
+    const counts = allConsumptions.reduce(
+      (acc, curr) => {
+        acc[curr.name] = (acc[curr.name] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+    const sortedNames = Object.keys(counts)
+      .sort((a, b) => counts[b] - counts[a])
+      .slice(0, 4);
+    const allAvailableFoods = [...customFoods, ...commonFoods];
+    return sortedNames
+      .map((name) => allAvailableFoods.find((f) => f.name === name))
+      .filter(Boolean) as FoodItemTemplate[];
+  }, [allConsumptions, customFoods]);
+
+  const profileCompletion = getProfileCompletion(settings.profile);
+  const isProfileComplete = profileCompletion.percentage === 100;
+
+  return (
+    <div className="max-w-md mx-auto w-full relative pb-24">
+      {/* Date Header */}
+      <header className="px-6 pt-10 pb-4 bg-white sticky top-0 z-10 border-b border-gray-100 flex justify-between items-center shadow-sm">
+        <button
+          onClick={() => setSelectedDate(subDays(selectedDate, 1))}
+          className="p-2 -ml-2 text-gray-400 hover:text-gray-900 transition-colors"
+        >
+          <ChevronLeft className="w-6 h-6" />
+        </button>
+        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+          {getDisplayDate()}
+        </h1>
+        <button
+          onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+          className={`p-2 -mr-2 transition-colors ${isToday(selectedDate) ? "text-gray-200 cursor-not-allowed" : "text-gray-400 hover:text-gray-900"}`}
+          disabled={isToday(selectedDate)}
+        >
+          <ChevronRight className="w-6 h-6" />
+        </button>
+      </header>
+
+      <div className="p-6 space-y-8">
+        {/* Profile Completion Reminder */}
+        {!isProfileComplete ? (
+          <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex items-start gap-3 shadow-sm">
+            <div className="p-2 bg-blue-100 text-blue-600 rounded-xl shrink-0 mt-0.5">
+              <Settings className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+              <div className="flex justify-between items-center mb-1">
+                <h3 className="text-sm font-bold text-blue-900">Profile Progress</h3>
+                <span className="text-xs font-bold text-blue-700">{profileCompletion.percentage}% Complete</span>
+              </div>
+              <div className="w-full bg-blue-200/50 rounded-full h-1.5 mb-2.5 overflow-hidden">
+                <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${profileCompletion.percentage}%` }}></div>
+              </div>
+              <p className="text-xs text-blue-800 mb-3 leading-relaxed font-medium">
+                Missing: {profileCompletion.missing.join(', ')}
+              </p>
+              <button 
+                onClick={() => onOpenSettings()}
+                className="w-full text-xs font-bold text-white bg-blue-600 py-2.5 rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                Complete Profile
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-start gap-3 shadow-sm">
+            <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl shrink-0 mt-0.5">
+              <Award className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+              <div className="flex justify-between items-center mb-1">
+                <h3 className="text-sm font-bold text-emerald-900">Health Profile</h3>
+                <span className="text-xs font-bold text-emerald-700">100% Complete</span>
+              </div>
+              <div className="w-full bg-emerald-200/50 rounded-full h-1.5 mb-2.5 overflow-hidden">
+                <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: '100%' }}></div>
+              </div>
+              <p className="text-xs text-emerald-800 leading-relaxed font-medium mb-3">
+                Your profile is fully optimized for personalized recommendations.
+              </p>
+              <button 
+                onClick={() => onOpenSettings()}
+                className="text-xs font-bold text-emerald-700 bg-emerald-100 px-4 py-2 rounded-xl hover:bg-emerald-200 transition-colors"
+              >
+                View Profile
+              </button>
+            </div>
+          </div>
+        )}
+        {/* SECTION 1: Daily Analysis & Calorie Status */}
+        <section>
+          <div className="bg-white rounded-3xl p-5 border border-gray-100 mb-4 shadow-sm flex flex-col gap-4">
+            <div className="flex justify-between items-center border-b border-gray-50 pb-3">
+              <div>
+                <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-emerald-500" />
+                  Daily Score
+                </p>
+                <p className="text-xs text-gray-500 font-medium">Based on your goals</p>
+              </div>
+              <div className="text-3xl font-black text-gray-900 tracking-tight">
+                {dailySummary.nutritionScore}<span className="text-lg text-gray-400 font-bold">/100</span>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-3">
+              <Award className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-gray-900 text-sm mb-0.5">Biggest Success</p>
+                <p className="text-gray-600 text-xs">{dailySummary.biggestSuccess}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-gray-900 text-sm mb-0.5">Opportunity</p>
+                <p className="text-gray-600 text-xs">{dailySummary.improvement}</p>
+              </div>
+            </div>
+
+            <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100 flex items-start gap-3 mt-1">
+              <div className="w-8 h-8 rounded-full bg-emerald-200 flex items-center justify-center shrink-0">
+                <Lightbulb className="w-4 h-4 text-emerald-800" />
+              </div>
+              <div>
+                <p className="font-bold text-emerald-900 text-sm mb-0.5">
+                  Today's Focus
+                </p>
+                <p className="text-emerald-800 text-xs leading-relaxed">
+                  {dailySummary.dailyFocus}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+            <div className="flex justify-between text-sm mb-2">
+              <div>
+                <span className="font-bold text-gray-900">
+                  {Math.round(totalCalories)}
+                </span>
+                <span className="text-gray-500 ml-1">kcal eaten</span>
+              </div>
+              <div>
+                <span className="font-bold text-gray-900">
+                  {Math.round(remainingCalories)}
+                </span>
+                <span className="text-gray-500 ml-1">left</span>
+              </div>
+            </div>
+            <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+              <motion.div
+                className={`h-full ${getProgressBg()}`}
+                initial={{ width: 0 }}
+                animate={{ width: `${progressPercentage}%` }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+              />
+            </div>
+            <p className="text-[10px] text-gray-400 mt-2 text-center uppercase tracking-wider font-bold">
+              Based on {settings.profile?.primaryGoal ? `your goal to ${settings.profile.primaryGoal.toLowerCase()}` : "the default healthy baseline"} ({settings.dailyGoal} kcal)
+            </p>
+          </div>
+        </section>
+
+        {/* SECTION 1.5: Goal Progress */}
+        <section>
+          <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm mt-4">
+            <h3 className="font-bold text-gray-900 text-sm mb-3 uppercase tracking-wider text-gray-500">Goal Progress</h3>
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <p className="text-xs text-gray-500 font-medium">Goal</p>
+                <p className="font-bold text-gray-900 text-sm">{settings.profile?.primaryGoal || 'Not set'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 font-medium">Current Weight</p>
+                <p className="font-bold text-gray-900 text-sm">{settings.profile?.weightKg ? `${settings.profile.weightKg} kg` : 'Not set'}</p>
+              </div>
+            </div>
+            
+            {settings.profile?.targetWeightKg ? (
+              <>
+                <div className="flex justify-between text-xs text-gray-500 font-medium mb-1.5">
+                  <span>Target: {settings.profile.targetWeightKg} kg</span>
+                  <span>
+                    {settings.profile.weightKg ? 
+                      `${Math.abs(settings.profile.weightKg - settings.profile.targetWeightKg).toFixed(1)} kg to go` : ''}
+                  </span>
+                </div>
+                
+                {/* 
+                  Since we don't have historical weights yet, we can't compute a real progress bar without making assumptions. 
+                  We will assume starting weight to make it visually informative.
+                */}
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-blue-500" 
+                    style={{ width: settings.profile.startWeightKg && settings.profile.weightKg 
+                      ? `${Math.min(100, Math.max(0, 100 - (Math.abs(settings.profile.weightKg - settings.profile.targetWeightKg) / Math.abs(settings.profile.startWeightKg - settings.profile.targetWeightKg)) * 100))}%` 
+                      : '0%' 
+                    }}
+                  ></div>
+                </div>
+                <p className="text-xs text-gray-500 mt-3 bg-gray-50 p-2 rounded-lg">
+                  Expected Progress: Around 0.4 kg per week.
+                </p>
+              </>
+            ) : (
+              <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 text-sm text-blue-800">
+                <p className="font-medium mb-1">Target Weight Missing</p>
+                <p className="text-xs">Add a target weight in Settings to track your progress.</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* SECTION 2: Action-First Quick Log */}
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+              <Zap className="w-4 h-4 text-amber-500" /> Quick Log Menu
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {quickLogFavorites.map((food) => (
+              <button
+                key={food.id}
+                onClick={() => onLogFood("Lunch", food)} // Default to Lunch for quick log
+                className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm text-left hover:border-emerald-500 hover:shadow-md transition-all group flex flex-col justify-between min-h-[90px]"
+              >
+                <p className="font-bold text-gray-900 text-sm group-hover:text-emerald-700 leading-tight line-clamp-2">
+                  {food.name.replace(/\s*\(.*?\)\s*/g, "")}
+                </p>
+                <div className="flex justify-between items-end mt-2">
+                  <span className="text-[10px] text-gray-500 font-medium uppercase">
+                    {food.calories} kcal
+                  </span>
+                  <div className="w-6 h-6 rounded-full bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+                    <Plus className="w-3.5 h-3.5 text-emerald-600" />
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* SECTION 3: Recent Foods (Only if user has history) */}
+        {recentFoods.length > 0 && (
+          <section>
+            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5 mb-3">
+              <Clock className="w-4 h-4 text-blue-500" /> Recently Logged
+            </h2>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              <ul className="divide-y divide-gray-50">
+                {recentFoods.map((food) => (
+                  <li key={`recent-${food.id}`}>
+                    <button
+                      onClick={() => onLogFood("Snacks", food)}
+                      className="w-full flex justify-between items-center p-3 hover:bg-gray-50 transition-colors text-left group"
+                    >
+                      <div className="flex-1 pr-4">
+                        <p className="font-semibold text-gray-900 text-sm truncate">
+                          {food.name}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {food.servingSizeText}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="font-bold text-gray-700 text-xs bg-gray-100 px-2 py-1 rounded-md">
+                          {food.calories} kcal
+                        </span>
+                        <div className="w-7 h-7 rounded-full border border-gray-200 flex items-center justify-center group-hover:border-emerald-500 group-hover:bg-emerald-50 transition-all">
+                          <Plus className="w-3 h-3 text-gray-400 group-hover:text-emerald-600" />
+                        </div>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
+
+        {/* SECTION 4: Today's Meals */}
+        <section>
+          <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
+            Today's Meals
+          </h2>
+          <div className="space-y-3">
+            {mealCategories.map((meal) => {
+              const items = selectedDateConsumptions.filter(
+                (c) => c.mealCategory === meal,
+              );
+              const cals = items.reduce((sum, item) => sum + item.calories, 0);
+
+              return (
+                <div
+                  key={meal}
+                  className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
+                >
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="font-bold text-gray-900 text-base">
+                        {meal}
+                      </h3>
+                      <p className="text-xs text-gray-500 font-medium mt-0.5">
+                        {Math.round(cals)} kcal{" "}
+                        {items.length > 0 ? `· ${items.length} items` : ""}
+                      </p>
+                    </div>
+                    {isToday(selectedDate) && (
+                      <button
+                        onClick={() => onLogFood(meal)}
+                        className="h-9 px-3 rounded-xl bg-gray-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-100 transition-colors font-bold text-sm gap-1.5"
+                      >
+                        <Plus className="w-4 h-4" /> Add
+                      </button>
+                    )}
+                  </div>
+
+                  {items.length > 0 && (
+                    <ul className="space-y-2 mt-4 pt-3 border-t border-gray-50">
+                      {items.map((item) => (
+                        <li
+                          key={item.id}
+                          className="flex justify-between items-center group"
+                        >
+                          <div className="flex-1 min-w-0 pr-4">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {item.name}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {item.servings} serving(s)
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className="text-sm font-bold text-gray-700 mr-2">
+                              {Math.round(item.calories)}
+                            </span>
+                            <button
+                              onClick={() => {
+                                setEditingItem(item);
+                                setEditServings(item.servings.toString());
+                              }}
+                              className="text-gray-400 hover:text-emerald-500 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => deleteConsumption(item.id)}
+                              className="text-gray-400 hover:text-red-500 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  
+                  {items.length > 0 && (
+                    <MealAnalysisCard analysis={recommendation.mealAnalysis.find(m => m.mealName === meal)} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+
+      <AnimatePresence>
+        {editingItem && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-4"
+            onClick={() => setEditingItem(null)}
+          >
+            <motion.div
+              initial={{ y: 200 }}
+              animate={{ y: 0 }}
+              exit={{ y: 200 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-white rounded-3xl p-6 shadow-xl pb-safe"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-bold text-gray-900 truncate pr-4">
+                  Edit {editingItem.name}
+                </h3>
+                <button
+                  onClick={() => setEditingItem(null)}
+                  className="p-2 text-gray-400 hover:text-gray-900 rounded-full bg-gray-50"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Number of Servings
+                </label>
+                <input
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={editServings}
+                  onChange={(e) => setEditServings(e.target.value)}
+                  className="w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-xl text-lg font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                  autoFocus
+                />
+              </div>
+
+              <button
+                onClick={handleSaveEdit}
+                disabled={!parseFloat(editServings)}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 px-6 rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <Check className="w-5 h-5" />
+                Save Changes
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
