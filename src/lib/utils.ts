@@ -1,9 +1,9 @@
 import { format } from 'date-fns';
-import { ConsumptionRecord } from '../types';
+import { ConsumptionRecord, MealCategory } from '../types';
 
 export const exportToCSV = (records: ConsumptionRecord[]) => {
   const headers = ['Date', 'Time', 'Meal', 'Food Name', 'Servings', 'Total Calories'];
-  
+
   const rows = records.map(record => {
     const d = new Date(record.timestamp);
     return [
@@ -17,11 +17,10 @@ export const exportToCSV = (records: ConsumptionRecord[]) => {
   });
 
   const csvContent = [headers.join(','), ...rows].join('\n');
-  
+
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('url');
   const url = URL.createObjectURL(blob);
-  
+
   const a = document.createElement('a');
   a.setAttribute('href', url);
   a.setAttribute('download', `mboafit_export_${format(new Date(), 'yyyy-MM-dd')}.csv`);
@@ -29,46 +28,101 @@ export const exportToCSV = (records: ConsumptionRecord[]) => {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
+  URL.revokeObjectURL(url); // don't leak the object URL
 };
 
-export const parseCSV = async (file: File): Promise<Partial<ConsumptionRecord>[]> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const text = e.target?.result as string;
-        const lines = text.split('\n').filter(l => l.trim() !== '');
-        if (lines.length < 2) resolve([]); // only header or empty
-        
-        const records: Partial<ConsumptionRecord>[] = [];
-        for (let i = 1; i < lines.length; i++) {
-          const l = lines[i];
-          // simple regex to handle quotes
-          const matches = l.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
-          if (!matches) continue;
-          
-          const row = matches.map(m => m.replace(/^"|"$/g, '').replace(/""/g, '"'));
-          if (row.length >= 6) {
-            const dateStr = row[0];
-            const timeStr = row[1];
-            const dt = new Date(`${dateStr}T${timeStr}`);
-            
-            records.push({
-              id: crypto.randomUUID(),
-              timestamp: dt.getTime(),
-              mealCategory: row[2] as any,
-              name: row[3],
-              servings: Number(row[4]),
-              calories: Number(row[5])
-            });
-          }
+/** Split one CSV line into fields, honouring quoted sections and "" escapes. */
+function splitCSVLine(line: string): string[] {
+  const fields: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') {
+          current += '"';
+          i++; // escaped quote
+        } else {
+          inQuotes = false;
         }
-        resolve(records);
-      } catch (err) {
-        reject(err);
+      } else {
+        current += ch;
       }
-    };
-    reader.onerror = reject;
-    reader.readAsText(file);
-  });
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ',') {
+      fields.push(current);
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  fields.push(current);
+  return fields.map((f) => f.trim());
+}
+
+/**
+ * Split text into logical CSV rows, merging physical lines when a quoted
+ * field spans multiple lines.
+ */
+function splitCSVRows(text: string): string[] {
+  const rows: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  const pushRow = () => {
+    if (current.trim() !== '') rows.push(current);
+    current = '';
+  };
+
+  for (const line of text.split('\n')) {
+    current += (current ? '\n' : '') + line;
+    for (const ch of line) {
+      if (ch === '"') inQuotes = !inQuotes;
+    }
+    if (!inQuotes) pushRow();
+  }
+  pushRow();
+  return rows;
+}
+
+const VALID_MEAL_CATEGORIES: MealCategory[] = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
+
+export const parseCSV = async (file: File): Promise<Partial<ConsumptionRecord>[]> => {
+  const text = await file.text();
+  const rows = splitCSVRows(text);
+  if (rows.length < 2) return []; // only header or empty
+
+  const records: Partial<ConsumptionRecord>[] = [];
+  for (let i = 1; i < rows.length; i++) {
+    const cols = splitCSVLine(rows[i]);
+    if (cols.length < 6) continue;
+
+    const [dateStr, timeStr, mealStr, name, servingsStr, caloriesStr] = cols;
+    const dt = new Date(`${dateStr}T${timeStr}`);
+    const servings = Number(servingsStr);
+    const calories = Number(caloriesStr);
+
+    // Row validation: skip anything that doesn't look like a real record.
+    if (!name) continue;
+    if (Number.isNaN(dt.getTime())) continue;
+    if (!Number.isFinite(servings) || servings <= 0) continue;
+    if (!Number.isFinite(calories) || calories < 0) continue;
+
+    const mealCategory: MealCategory = (VALID_MEAL_CATEGORIES as string[]).includes(mealStr)
+      ? (mealStr as MealCategory)
+      : 'Snacks';
+
+    records.push({
+      id: crypto.randomUUID(),
+      timestamp: dt.getTime(),
+      mealCategory,
+      name,
+      servings,
+      calories,
+    });
+  }
+  return records;
 };

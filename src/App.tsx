@@ -14,21 +14,36 @@ import { FoodRecognitionPipeline } from './features/vision/domain/pipeline/FoodR
 import { ProcessedImageResult } from './features/vision/presentation/acquisition/CameraEngine';
 import { FoodRecognitionResult } from './features/vision/domain/pipeline/FoodRecognitionPipelineTypes';
 import { MealCategory, FoodItemTemplate, ConsumptionRecord } from './types';
-import { Home, PieChart, Settings, Camera, Search, Activity, User, Utensils } from 'lucide-react';
+import { Home, PieChart, Settings, Camera, Search, Activity, User, Utensils, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 type Tab = 'Home' | 'Meals' | 'Analytics' | 'Settings';
 type ViewState = 'ONBOARDING' | 'DASHBOARD' | 'CAMERA' | 'SCANNING' | 'RESULTS' | 'SUMMARY';
 
+function defaultMealForNow(): MealCategory {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 11) return 'Breakfast';
+  if (hour >= 11 && hour < 15) return 'Lunch';
+  if (hour >= 15 && hour < 22) return 'Dinner';
+  return 'Snacks';
+}
+
 function MainApp() {
   const { settings, addConsumption } = useData();
   const [currentTab, setCurrentTab] = useState<Tab>('Home');
   const [viewState, setViewState] = useState<ViewState>('DASHBOARD');
-  
+
   const [logMealContext, setLogMealContext] = useState<{meal: MealCategory, food?: FoodItemTemplate | null, record?: ConsumptionRecord | null}>({ meal: 'Snacks' });
-  
+
   const [capturedImage, setCapturedImage] = useState<ProcessedImageResult | null>(null);
   const [recognitionResult, setRecognitionResult] = useState<FoodRecognitionResult | null>(null);
+
+  // Inline scan error (replaces the old native alert()).
+  const [scanError, setScanError] = useState<string | null>(null);
+
+  // Meal category + servings chosen on the Summary screen for this scan.
+  const [summaryMeal, setSummaryMeal] = useState<MealCategory>('Lunch');
+  const [summaryServings, setSummaryServings] = useState<number>(1);
 
   const { selectedDateConsumptions } = useData();
 
@@ -39,13 +54,15 @@ function MainApp() {
   }, [settings.profile]);
 
   const handleStartScan = () => {
+    setScanError(null);
     setViewState('CAMERA');
   };
 
   const handleImageCaptured = async (image: ProcessedImageResult) => {
     setCapturedImage(image);
+    setScanError(null);
     setViewState('SCANNING');
-    
+
     try {
       const currentCalories = selectedDateConsumptions.reduce((sum, item) => sum + item.calories, 0);
       const currentProtein = selectedDateConsumptions.reduce((sum, item) => sum + item.protein, 0);
@@ -124,38 +141,37 @@ function MainApp() {
         foodIndex,
         fetchFoodKnowledgeById
       });
-      
-      // Delay for UX
-      setTimeout(() => {
-        setRecognitionResult(result);
-        setViewState('RESULTS');
-      }, 1500);
+
+      setRecognitionResult(result);
+      setViewState('RESULTS');
     } catch (error) {
       console.error("Pipeline failed", error);
-      alert("Failed to analyze image.");
+      setScanError("We couldn't analyze that photo. Please try again with a clearer picture.");
       setViewState('CAMERA');
     }
   };
 
   const handleResultsConfirmed = (updatedResult: FoodRecognitionResult) => {
     setRecognitionResult(updatedResult);
+    setSummaryMeal(defaultMealForNow());
+    setSummaryServings(1);
     setViewState('SUMMARY');
   };
 
-  const handleSaveMeal = async () => {
+  const handleSaveMeal = async (meal: MealCategory, servings: number) => {
     if (recognitionResult) {
       for (const item of recognitionResult.items) {
         if (item.foodKnowledge) {
           const scale = (item.estimatedPortion.estimatedWeight || 250) / 250;
           await addConsumption({
-            id: Date.now().toString() + Math.random().toString(),
+            id: crypto.randomUUID(),
             name: item.detectedLabel,
-            calories: Math.round((item.foodKnowledge.nutrition.calories || 0) * scale),
-            protein: (item.foodKnowledge.nutrition.protein || 0) * scale,
-            carbs: (item.foodKnowledge.nutrition.carbohydrates || 0) * scale,
-            fat: (item.foodKnowledge.nutrition.fat || 0) * scale,
-            servings: 1,
-            mealCategory: 'Lunch', // Simplified
+            calories: Math.round((item.foodKnowledge.nutrition.calories || 0) * scale * servings),
+            protein: (item.foodKnowledge.nutrition.protein || 0) * scale * servings,
+            carbs: (item.foodKnowledge.nutrition.carbohydrates || 0) * scale * servings,
+            fat: (item.foodKnowledge.nutrition.fat || 0) * scale * servings,
+            servings,
+            mealCategory: meal,
             timestamp: Date.now()
           });
         }
@@ -164,12 +180,13 @@ function MainApp() {
     setViewState('DASHBOARD');
     setCapturedImage(null);
     setRecognitionResult(null);
+    setScanError(null);
   };
 
   return (
     <div className="flex justify-center items-center h-screen bg-gray-100 sm:p-4">
       <div className="w-full h-full sm:w-[400px] sm:h-[800px] bg-white sm:rounded-[40px] sm:shadow-2xl overflow-hidden relative flex flex-col sm:border-[8px] sm:border-gray-900">
-        
+
         <div className="flex-1 overflow-hidden relative bg-gray-50">
           <AnimatePresence mode="wait">
             {viewState === 'ONBOARDING' && (
@@ -182,22 +199,22 @@ function MainApp() {
               <motion.div key="dashboard" className="absolute inset-0 flex flex-col" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
                 <div className="flex-1 overflow-y-auto pb-safe">
                   {currentTab === 'Home' && (
-                    <DashboardView 
-                      onLogFood={(meal, food, record) => { setLogMealContext({meal, food, record}); setCurrentTab('Meals'); }} 
+                    <DashboardView
+                      onLogFood={(meal, food, record) => { setLogMealContext({meal, food, record}); setCurrentTab('Meals'); }}
                       onOpenSettings={() => setCurrentTab('Settings')}
                     />
                   )}
                   {currentTab === 'Meals' && (
-                    <LogFoodView 
-                      initialMeal={logMealContext.meal} 
-                      initialFood={logMealContext.food} 
-                      initialRecord={logMealContext.record} 
-                      onBack={() => setCurrentTab('Home')} 
+                    <LogFoodView
+                      initialMeal={logMealContext.meal}
+                      initialFood={logMealContext.food}
+                      initialRecord={logMealContext.record}
+                      onBack={() => setCurrentTab('Home')}
                     />
                   )}
                   {currentTab === 'Analytics' && (
-                    <AnalyticsView 
-                      onLogFood={(food) => { setLogMealContext({meal: 'Snacks', food: food || null}); setCurrentTab('Meals'); }} 
+                    <AnalyticsView
+                      onLogFood={(food) => { setLogMealContext({meal: 'Snacks', food: food || null}); setCurrentTab('Meals'); }}
                     />
                   )}
                   {currentTab === 'Settings' && <SettingsView />}
@@ -222,10 +239,10 @@ function MainApp() {
                     <span className="text-[10px] mt-1">Profile</span>
                   </button>
                 </div>
-                
+
                 {/* Floating Scan Button */}
                 <div className="absolute bottom-[60px] left-1/2 -translate-x-1/2 z-20">
-                  <motion.button 
+                  <motion.button
                     whileTap={{ scale: 0.9 }}
                     onClick={handleStartScan}
                     className="bg-emerald-600 text-white p-4 rounded-full shadow-lg shadow-emerald-600/30 flex items-center justify-center border-4 border-white"
@@ -239,6 +256,15 @@ function MainApp() {
             {viewState === 'CAMERA' && (
               <motion.div key="camera" className="absolute inset-0 z-50 bg-black" initial={{y:'100%'}} animate={{y:0}} exit={{y:'100%'}}>
                 <CameraScreen onCapture={handleImageCaptured} onClose={() => setViewState('DASHBOARD')} />
+                {scanError && (
+                  <button
+                    onClick={() => setScanError(null)}
+                    className="absolute top-14 left-4 right-4 z-[60] bg-red-600 text-white text-sm font-semibold px-4 py-3 rounded-2xl shadow-lg flex items-center gap-2 text-left"
+                  >
+                    <AlertTriangle size={18} className="shrink-0" />
+                    <span>{scanError}</span>
+                  </button>
+                )}
               </motion.div>
             )}
             {viewState === 'SCANNING' && (
@@ -248,13 +274,13 @@ function MainApp() {
             )}
             {viewState === 'RESULTS' && recognitionResult && (
               <motion.div key="results" className="absolute inset-0 z-50 bg-white" initial={{x:'100%'}} animate={{x:0}} exit={{x:'-100%'}}>
-                <ResultsScreen 
-                  result={recognitionResult} 
-                  onConfirm={handleResultsConfirmed} 
+                <ResultsScreen
+                  result={recognitionResult}
+                  onConfirm={handleResultsConfirmed}
                   onRetake={() => setViewState('CAMERA')}
                   onManualAdd={() => {
                     setViewState('DASHBOARD');
-                    setLogMealContext({meal: 'Lunch', food: null}); 
+                    setLogMealContext({meal: 'Lunch', food: null});
                     setCurrentTab('Meals');
                   }}
                 />
@@ -262,10 +288,14 @@ function MainApp() {
             )}
             {viewState === 'SUMMARY' && recognitionResult && (
               <motion.div key="summary" className="absolute inset-0 z-50 bg-gray-50" initial={{x:'100%'}} animate={{x:0}} exit={{x:'-100%'}}>
-                <SummaryScreen 
-                  result={recognitionResult} 
-                  onSave={handleSaveMeal} 
-                  onBack={() => setViewState('RESULTS')} 
+                <SummaryScreen
+                  result={recognitionResult}
+                  onSave={handleSaveMeal}
+                  onBack={() => setViewState('RESULTS')}
+                  meal={summaryMeal}
+                  servings={summaryServings}
+                  onMealChange={setSummaryMeal}
+                  onServingsChange={setSummaryServings}
                 />
               </motion.div>
             )}

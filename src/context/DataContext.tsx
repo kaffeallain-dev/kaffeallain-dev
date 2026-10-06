@@ -1,24 +1,32 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { ConsumptionRecord, CustomFoodTemplate, UserSettings } from '../types';
+import { ConsumptionRecord, CustomFoodTemplate, UserSettings, WeightEntry } from '../types';
 import * as db from '../lib/db';
 import { startOfDay, endOfDay, isSameDay } from 'date-fns';
 
 interface DataContextType {
   settings: UserSettings;
   updateSettings: (s: UserSettings) => Promise<void>;
-  
+
   selectedDate: Date;
   setSelectedDate: (d: Date) => void;
   selectedDateConsumptions: ConsumptionRecord[];
-  
+
   allConsumptions: ConsumptionRecord[];
   addConsumption: (r: ConsumptionRecord) => Promise<void>;
   updateConsumption: (r: ConsumptionRecord) => Promise<void>;
   deleteConsumption: (id: string) => Promise<void>;
-  
+
   customFoods: CustomFoodTemplate[];
   addCustomFood: (f: CustomFoodTemplate) => Promise<void>;
   deleteCustomFood: (id: string) => Promise<void>;
+
+  weightEntries: WeightEntry[];
+  addWeightEntry: (weightKg: number) => Promise<void>;
+  deleteWeightEntry: (id: string) => Promise<void>;
+
+  /** Set when IndexedDB can't be read/written (e.g. private browsing mode). */
+  dataError: string | null;
+  clearDataError: () => void;
 
   refreshData: () => Promise<void>;
   clearAllData: () => Promise<void>;
@@ -38,22 +46,39 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [selectedDateConsumptions, setSelectedDateConsumptions] = useState<ConsumptionRecord[]>([]);
   const [allConsumptions, setAllConsumptions] = useState<ConsumptionRecord[]>([]);
   const [customFoods, setCustomFoods] = useState<CustomFoodTemplate[]>([]);
+  const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([]);
+  const [dataError, setDataError] = useState<string | null>(null);
+
+  const clearDataError = () => setDataError(null);
 
   const loadData = async () => {
-    const s = await db.getSettings();
-    setSettings(s);
+    try {
+      const s = await db.getSettings();
+      setSettings(s);
 
-    const tStart = startOfDay(selectedDate).getTime();
-    const tEnd = endOfDay(selectedDate).getTime();
-    
-    const today = await db.getConsumptionsInRange(tStart, tEnd);
-    setSelectedDateConsumptions(today.sort((a,b) => b.timestamp - a.timestamp));
+      const tStart = startOfDay(selectedDate).getTime();
+      const tEnd = endOfDay(selectedDate).getTime();
 
-    const all = await db.getAllConsumptions();
-    setAllConsumptions(all.sort((a,b) => b.timestamp - a.timestamp));
+      const today = await db.getConsumptionsInRange(tStart, tEnd);
+      setSelectedDateConsumptions(today.sort((a,b) => b.timestamp - a.timestamp));
 
-    const custom = await db.getCustomFoods();
-    setCustomFoods(custom);
+      const all = await db.getAllConsumptions();
+      setAllConsumptions(all.sort((a,b) => b.timestamp - a.timestamp));
+
+      const custom = await db.getCustomFoods();
+      setCustomFoods(custom);
+
+      const weights = await db.getWeightEntries();
+      setWeightEntries(weights.sort((a,b) => a.timestamp - b.timestamp));
+
+      setDataError(null);
+    } catch (err) {
+      console.error('Failed to load local data:', err);
+      setDataError(
+        'Could not load your saved data — this can happen in private browsing mode. ' +
+        'Your new entries may not be saved while this error is showing.'
+      );
+    }
   };
 
   useEffect(() => {
@@ -90,6 +115,23 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     await loadData();
   };
 
+  const handleAddWeightEntry = async (weightKg: number) => {
+    if (!Number.isFinite(weightKg) || weightKg <= 0 || weightKg > 400) {
+      throw new Error('Please enter a valid weight in kg.');
+    }
+    await db.addWeightEntry({
+      id: crypto.randomUUID(),
+      timestamp: Date.now(),
+      weightKg,
+    });
+    await loadData();
+  };
+
+  const handleDeleteWeightEntry = async (id: string) => {
+    await db.deleteWeightEntry(id);
+    await loadData();
+  };
+
   const clearAllData = async () => {
     await db.clearAllConsumptions();
     setSelectedDate(new Date());
@@ -110,6 +152,11 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       customFoods,
       addCustomFood: handleAddCustomFood,
       deleteCustomFood: handleDeleteCustomFood,
+      weightEntries,
+      addWeightEntry: handleAddWeightEntry,
+      deleteWeightEntry: handleDeleteWeightEntry,
+      dataError,
+      clearDataError,
       refreshData: loadData,
       clearAllData
     }}>
@@ -117,4 +164,3 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     </DataContext.Provider>
   );
 };
-
