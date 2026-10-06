@@ -1,5 +1,5 @@
 import { openDB, DBSchema } from 'idb';
-import { ConsumptionRecord, CustomFoodTemplate, UserSettings } from '../types';
+import { ConsumptionRecord, CustomFoodTemplate, UserSettings, WeightEntry } from '../types';
 
 interface CalorieTrackerDB extends DBSchema {
   consumptions: {
@@ -15,10 +15,15 @@ interface CalorieTrackerDB extends DBSchema {
     key: string;
     value: UserSettings;
   };
+  weightEntries: {
+    key: string;
+    value: WeightEntry;
+    indexes: { 'by-timestamp': number };
+  };
 }
 
 const DB_NAME = 'calorie-tracker-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export const getDB = async () => {
   return openDB<CalorieTrackerDB>(DB_NAME, DB_VERSION, {
@@ -32,6 +37,10 @@ export const getDB = async () => {
       }
       if (!db.objectStoreNames.contains('settings')) {
         db.createObjectStore('settings', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('weightEntries')) {
+        const store = db.createObjectStore('weightEntries', { keyPath: 'id' });
+        store.createIndex('by-timestamp', 'timestamp');
       }
     },
   });
@@ -99,4 +108,26 @@ export const addCustomFood = async (food: CustomFoodTemplate) => {
 export const deleteCustomFood = async (id: string) => {
   const db = await getDB();
   await db.delete('customFoods', id);
+};
+
+// Weight entries (timestamped body-weight measurements for trend analysis)
+export const getWeightEntries = async (): Promise<WeightEntry[]> => {
+  const db = await getDB();
+  const index = db.transaction('weightEntries').store.index('by-timestamp');
+  return index.getAll();
+};
+
+export const addWeightEntry = async (entry: WeightEntry) => {
+  const db = await getDB();
+  await db.put('weightEntries', entry);
+};
+
+export const deleteWeightEntry = async (id: string) => {
+  const db = await getDB();
+  await db.delete('weightEntries', id);
+};
+
+export const clearWeightEntries = async () => {
+  const db = await getDB();
+  await db.clear('weightEntries');
 };

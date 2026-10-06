@@ -1,20 +1,20 @@
 export type MealCategory = 'Breakfast' | 'Lunch' | 'Dinner' | 'Snacks';
 
-export type FoodCategory = 
-  | 'Soups' 
-  | 'Starches' 
-  | 'Breakfast Foods' 
-  | 'Campus Meals' 
+export type FoodCategory =
+  | 'Soups'
+  | 'Starches'
+  | 'Breakfast Foods'
+  | 'Campus Meals'
   | 'Frequently Eaten by Students'
-  | 'Street Foods' 
-  | 'Traditional Dishes' 
-  | 'Snacks' 
-  | 'Drinks' 
-  | 'Fruits' 
+  | 'Street Foods'
+  | 'Traditional Dishes'
+  | 'Snacks'
+  | 'Drinks'
+  | 'Fruits'
   | 'Protein Sources'
   | 'Custom'
   | 'International'
-  | string;
+  | 'Other';
 
 export type FoodType = 'Individual' | 'Combo' | 'Uncertain' | 'Duplicate';
 
@@ -62,9 +62,16 @@ export interface ConsumptionRecord {
   protein: number;
   carbs: number;
   fat: number;
-  servings: number; 
+  servings: number;
   mealCategory: MealCategory;
   timestamp: number;
+}
+
+/** A single timestamped body-weight measurement, used for trend analysis. */
+export interface WeightEntry {
+  id: string;
+  timestamp: number; // ms since epoch
+  weightKg: number;
 }
 
 export interface UserProfile {

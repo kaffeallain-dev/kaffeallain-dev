@@ -1,17 +1,28 @@
 import React, { useMemo } from 'react';
-import { ChevronLeft, CheckCircle2, Flame, Droplet, Wheat, Activity, Lightbulb, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, CheckCircle2, Flame, Droplet, Wheat, Activity, Lightbulb, AlertTriangle, Minus, Plus } from 'lucide-react';
 import { FoodRecognitionResult } from '../features/vision/domain/pipeline/FoodRecognitionPipelineTypes';
 import { VisionMealIntegrationPipeline } from '../features/recommendation/domain/integration/VisionMealIntegrationPipeline';
 import { motion } from 'motion/react';
 import { useData } from '../context/DataContext';
+import { MealCategory } from '../types';
 
 interface Props {
   result: FoodRecognitionResult;
-  onSave: () => void;
+  onSave: (meal: MealCategory, servings: number) => void;
   onBack: () => void;
+  meal: MealCategory;
+  servings: number;
+  onMealChange: (m: MealCategory) => void;
+  onServingsChange: (s: number) => void;
 }
 
-export function SummaryScreen({ result, onSave, onBack }: Props) {
+const MEAL_OPTIONS: MealCategory[] = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
+
+function formatServings(s: number): string {
+  return Number.isInteger(s) ? String(s) : s.toFixed(1);
+}
+
+export function SummaryScreen({ result, onSave, onBack, meal, servings, onMealChange, onServingsChange }: Props) {
   const { settings, selectedDateConsumptions } = useData();
 
   // Re-run the analysis if portions were edited on the previous screen
@@ -33,7 +44,7 @@ export function SummaryScreen({ result, onSave, onBack }: Props) {
     const currentFat = selectedDateConsumptions.reduce((sum, item) => sum + item.fat, 0);
 
     const targetCalories = settings.dailyGoal;
-    
+
     let primaryGoal: any = 'healthyEating';
     if (settings.profile?.primaryGoal === 'Lose Weight') primaryGoal = 'weightLoss';
     if (settings.profile?.primaryGoal === 'Gain Weight') primaryGoal = 'weightGain';
@@ -83,9 +94,15 @@ export function SummaryScreen({ result, onSave, onBack }: Props) {
 
   const { totals, healthScore, warnings, coachingTips } = analysis;
 
+  // Totals scaled by the servings the user picked — this is what gets saved.
+  const shownCalories = Math.round(totals.calories * servings);
+  const shownProtein = Math.round(totals.protein * servings);
+  const shownCarbs = Math.round(totals.carbs * servings);
+  const shownFat = Math.round(totals.fat * servings);
+
   return (
     <div className="absolute inset-0 bg-gray-50 z-50 flex flex-col h-full overflow-hidden">
-      
+
       {/* Header */}
       <div className="pt-14 pb-4 px-4 bg-white flex items-center shrink-0 border-b border-gray-100 z-10">
         <button onClick={onBack} className="p-2 text-gray-800">
@@ -95,18 +112,18 @@ export function SummaryScreen({ result, onSave, onBack }: Props) {
       </div>
 
       <div className="flex-1 overflow-y-auto pb-24">
-        
+
         {/* Top Stats */}
         <div className="bg-white p-6 pt-8 rounded-b-3xl shadow-sm">
           <div className="flex justify-between items-end mb-6">
             <div>
               <p className="text-sm text-gray-500 font-medium uppercase tracking-wider mb-1">Total Calories</p>
               <div className="flex items-baseline">
-                <span className="text-5xl font-black text-gray-900">{totals.calories}</span>
+                <span className="text-5xl font-black text-gray-900">{shownCalories}</span>
                 <span className="text-lg text-gray-400 ml-1 font-medium">kcal</span>
               </div>
             </div>
-            
+
             <div className="text-right">
               <div className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full ${healthScore >= 7 ? 'bg-emerald-100 text-emerald-700' : healthScore >= 4 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
                 <Activity size={16} />
@@ -122,26 +139,66 @@ export function SummaryScreen({ result, onSave, onBack }: Props) {
                 <Flame size={16} />
                 <span className="text-xs font-bold uppercase">Protein</span>
               </div>
-              <p className="text-xl font-bold text-gray-900">{totals.protein}g</p>
+              <p className="text-xl font-bold text-gray-900">{shownProtein}g</p>
             </div>
             <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100/50">
               <div className="flex items-center space-x-1 text-orange-500 mb-2">
                 <Wheat size={16} />
                 <span className="text-xs font-bold uppercase">Carbs</span>
               </div>
-              <p className="text-xl font-bold text-gray-900">{totals.carbs}g</p>
+              <p className="text-xl font-bold text-gray-900">{shownCarbs}g</p>
             </div>
             <div className="bg-rose-50 p-4 rounded-2xl border border-rose-100/50">
               <div className="flex items-center space-x-1 text-rose-500 mb-2">
                 <Droplet size={16} />
                 <span className="text-xs font-bold uppercase">Fat</span>
               </div>
-              <p className="text-xl font-bold text-gray-900">{totals.fat}g</p>
+              <p className="text-xl font-bold text-gray-900">{shownFat}g</p>
             </div>
           </div>
         </div>
 
         <div className="p-6 space-y-6">
+          {/* Log As: meal category + servings */}
+          <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
+            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Log as</h3>
+            <div className="flex gap-2 flex-wrap mb-4">
+              {MEAL_OPTIONS.map((m) => (
+                <button
+                  key={m}
+                  onClick={() => onMealChange(m)}
+                  className={`px-4 py-2 rounded-full text-sm font-bold transition-colors ${
+                    meal === m
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-gray-700">Servings</span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => onServingsChange(Math.max(0.5, Math.round((servings - 0.5) * 10) / 10))}
+                  className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-700"
+                  aria-label="Fewer servings"
+                >
+                  <Minus size={16} />
+                </button>
+                <span className="text-lg font-black text-gray-900 w-10 text-center">{formatServings(servings)}</span>
+                <button
+                  onClick={() => onServingsChange(Math.min(10, Math.round((servings + 0.5) * 10) / 10))}
+                  className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-700"
+                  aria-label="More servings"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* AI Coaching Tips */}
           {coachingTips.length > 0 && (
             <div>
@@ -151,11 +208,11 @@ export function SummaryScreen({ result, onSave, onBack }: Props) {
               </h3>
               <div className="space-y-3">
                 {coachingTips.map((tip, idx) => (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: idx * 0.15 }}
-                    key={idx} 
+                    key={idx}
                     className="bg-white p-4 rounded-2xl shadow-sm border border-emerald-100 border-l-4 border-l-emerald-500"
                   >
                     <h4 className="font-bold text-gray-800 text-sm mb-1">{tip.title}</h4>
@@ -190,9 +247,9 @@ export function SummaryScreen({ result, onSave, onBack }: Props) {
 
       {/* Floating Save Button */}
       <div className="absolute bottom-6 left-6 right-6 z-20">
-        <motion.button 
+        <motion.button
           whileTap={{ scale: 0.98 }}
-          onClick={onSave}
+          onClick={() => onSave(meal, servings)}
           className="w-full py-4 rounded-2xl bg-gray-900 text-white font-bold text-lg flex justify-center items-center shadow-xl shadow-gray-900/20"
         >
           <CheckCircle2 size={24} className="mr-2 text-emerald-400" />

@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useData } from "../context/DataContext";
 import { MealCategory, FoodItemTemplate } from "../types";
 import {
@@ -7,13 +7,23 @@ import {
   ChevronRight,
   Zap,
   Lightbulb,
-  Camera
+  Camera,
+  AlertTriangle,
+  Activity,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { format, isToday, isYesterday, addDays, subDays } from "date-fns";
 import { getProfileCompletion } from "../lib/personalization";
 import { commonFoods } from "../data/foodDatabase";
 import { RecommendationEngine } from "../lib/RecommendationEngine";
+import {
+  computeWeightTrend,
+  adaptTargetToTrend,
+  buildAdaptiveRecommendations,
+  computeDashboardStatus,
+  loggingStreak,
+  COACHING_DISCLAIMER,
+} from "../lib/adaptiveCoaching";
 
 export default function DashboardView({
   onLogFood,
@@ -28,6 +38,10 @@ export default function DashboardView({
     selectedDateConsumptions,
     allConsumptions,
     customFoods,
+    weightEntries,
+    addWeightEntry,
+    dataError,
+    clearDataError,
   } = useData();
 
   const totalCalories = selectedDateConsumptions.reduce(
@@ -68,16 +82,93 @@ export default function DashboardView({
     );
   }, [selectedDateConsumptions, settings.dailyGoal, settings.profile]);
 
+  // ---- Adaptive coaching: driven by the user's real logged data ----
+  const trend = useMemo(() => computeWeightTrend(weightEntries), [weightEntries]);
+
+  const recentConsumptions = useMemo(() => {
+    const cutoff = Date.now() - 7 * 24 * 3600 * 1000;
+    return allConsumptions.filter((c) => c.timestamp >= cutoff);
+  }, [allConsumptions]);
+
+  const recentDaysLogged = useMemo(() => loggingStreak(recentConsumptions), [recentConsumptions]);
+
+  const avgCalories = useMemo(() => {
+    if (recentDaysLogged === 0) return 0;
+    return recentConsumptions.reduce((s, c) => s + c.calories, 0) / recentDaysLogged;
+  }, [recentConsumptions, recentDaysLogged]);
+
+  const adaptiveTarget = useMemo(
+    () => adaptTargetToTrend(settings.profile, trend),
+    [settings.profile, trend]
+  );
+
+  const status = useMemo(
+    () =>
+      computeDashboardStatus({
+        profile: settings.profile,
+        trend,
+        daysLogged: recentDaysLogged,
+        avgCalories,
+        targetCalories: adaptiveTarget.targetCalories,
+      }),
+    [settings.profile, trend, recentDaysLogged, avgCalories, adaptiveTarget]
+  );
+
+  const adaptiveRecs = useMemo(
+    () =>
+      buildAdaptiveRecommendations({
+        profile: settings.profile,
+        consumptions: recentConsumptions,
+        trend,
+        entries: weightEntries,
+      }),
+    [settings.profile, recentConsumptions, trend, weightEntries]
+  );
+
+  const statusPill =
+    status.status === "on-track"
+      ? "bg-emerald-100 text-emerald-700"
+      : status.status === "needs-attention"
+        ? "bg-amber-100 text-amber-700"
+        : status.status === "off-track"
+          ? "bg-red-100 text-red-700"
+          : "bg-gray-100 text-gray-600";
+
+  const priorityStyles: Record<string, { pill: string; border: string }> = {
+    high: { pill: "bg-red-100 text-red-700", border: "border-l-red-500" },
+    medium: { pill: "bg-amber-100 text-amber-700", border: "border-l-amber-500" },
+    low: { pill: "bg-gray-100 text-gray-600", border: "border-l-gray-300" },
+  };
+
+  const [weightInput, setWeightInput] = useState("");
+  const [weightError, setWeightError] = useState<string | null>(null);
+
+  const handleLogWeight = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const v = Number(weightInput);
+    if (!Number.isFinite(v) || v <= 0 || v > 400) {
+      setWeightError("Enter a valid weight in kg.");
+      return;
+    }
+    try {
+      await addWeightEntry(v);
+      setWeightInput("");
+      setWeightError(null);
+    } catch (err: any) {
+      setWeightError(err?.message || "Could not save your weight.");
+    }
+  };
+
   const quickAddItems = useMemo(() => {
     const allAvailableFoods = [...customFoods, ...commonFoods];
     const counts = allConsumptions.reduce((acc, curr) => {
       acc[curr.name] = (acc[curr.name] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    
+
     const recentNames = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
     const items: FoodItemTemplate[] = [];
-    
+
     for (const name of recentNames) {
       if (items.length >= 3) break;
       const food = allAvailableFoods.find(f => f.name === name);
@@ -85,7 +176,7 @@ export default function DashboardView({
         items.push(food);
       }
     }
-    
+
     if (items.length < 3) {
       const defaults = ["Indomie and Egg", "Beans and Bread (Haricot-Pain)", "Rice and Stew", "Puff Puff and Beans"];
       for (const name of defaults) {
@@ -139,10 +230,24 @@ export default function DashboardView({
       </div>
 
       <div className="max-w-lg mx-auto px-4 -mt-4">
+        {/* DATA ERROR */}
+        {dataError && (
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-2">
+            <AlertTriangle size={18} className="text-red-600 shrink-0 mt-0.5" />
+            <p className="text-sm text-red-800 flex-1">{dataError}</p>
+            <button
+              onClick={clearDataError}
+              className="text-xs font-bold text-red-600 hover:text-red-800 shrink-0"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {/* SNAP A MEAL */}
         {isToday(selectedDate) && (
           <div className="mb-6">
-            <button 
+            <button
               onClick={() => onLogFood(getCurrentMealCategory())}
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200/50 rounded-2xl p-4 flex items-center justify-center gap-3 transition-colors"
             >
@@ -169,7 +274,7 @@ export default function DashboardView({
                 <div className="text-sm font-bold text-gray-900">~{settings.dailyGoal} kcal</div>
               </div>
             </div>
-            
+
             <div className="h-3 bg-gray-100 rounded-full overflow-hidden mt-4">
               <motion.div
                 className={`h-full ${getProgressBg()}`}
@@ -178,12 +283,72 @@ export default function DashboardView({
                 transition={{ duration: 0.8, ease: "easeOut" }}
               />
             </div>
-            
+
+            {adaptiveTarget.adjusted && adaptiveTarget.adjustmentReason && (
+              <p className="text-xs text-amber-800 mt-4 font-medium bg-amber-50 p-3 rounded-xl border border-amber-100">
+                <span className="font-bold">Adaptive suggestion:</span> {adaptiveTarget.adjustmentReason}
+              </p>
+            )}
+
             {isProfileIncomplete && (
               <p className="text-xs text-gray-500 mt-4 font-medium bg-gray-50 p-3 rounded-xl border border-gray-100">
                 <span className="font-bold text-gray-700">Nutrition estimate available.</span> Complete your profile in Settings for a more personalized daily target.
               </p>
             )}
+          </div>
+        </section>
+
+        {/* YOUR STATUS — driven by real trend + adherence data */}
+        <section className="mb-6">
+          <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <Activity className="w-4 h-4 text-emerald-500" /> Your status
+          </h2>
+          <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
+            <div className="mb-2">
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold ${statusPill}`}>
+                {status.label}
+              </span>
+            </div>
+            <p className="text-sm text-gray-600 leading-relaxed">{status.reason}</p>
+
+            {trend.direction !== "insufficient-data" ? (
+              <div className="mt-3 flex items-center gap-3 text-sm">
+                <div className="bg-gray-50 rounded-xl px-3 py-2 border border-gray-100">
+                  <span className="text-xs text-gray-500 font-semibold uppercase">7-day avg</span>
+                  <p className="font-black text-gray-900">{trend.avgKg.toFixed(1)} kg</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl px-3 py-2 border border-gray-100">
+                  <span className="text-xs text-gray-500 font-semibold uppercase">Trend</span>
+                  <p className={`font-black ${trend.kgPerWeek < 0 ? "text-emerald-600" : trend.kgPerWeek > 0 ? "text-red-600" : "text-gray-900"}`}>
+                    {trend.kgPerWeek > 0 ? "+" : ""}{trend.kgPerWeek.toFixed(2)} kg/wk
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500 mt-3">
+                Log your weight below to unlock trend tracking — your status gets smarter with real data.
+              </p>
+            )}
+
+            <form onSubmit={handleLogWeight} className="mt-4 flex gap-2">
+              <input
+                type="number"
+                step="0.1"
+                min="25"
+                max="400"
+                value={weightInput}
+                onChange={(e) => setWeightInput(e.target.value)}
+                placeholder="Weight (kg)"
+                className="flex-1 min-w-0 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition-colors shrink-0"
+              >
+                Log weight
+              </button>
+            </form>
+            {weightError && <p className="text-xs text-red-600 mt-1.5">{weightError}</p>}
           </div>
         </section>
 
@@ -295,6 +460,39 @@ export default function DashboardView({
             </div>
           </section>
         )}
+
+        {/* COACH INSIGHTS — tiered, personalized, data-driven */}
+        {adaptiveRecs.length > 0 && (
+          <section className="mb-6">
+            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <Activity className="w-4 h-4 text-emerald-500" /> Coach insights
+            </h2>
+            <div className="space-y-3">
+              {adaptiveRecs.map((rec, i) => {
+                const st = priorityStyles[rec.priority] ?? priorityStyles.low;
+                return (
+                  <div
+                    key={i}
+                    className={`bg-white p-4 rounded-2xl shadow-sm border border-gray-100 border-l-4 ${st.border}`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${st.pill}`}>
+                        {rec.priority}
+                      </span>
+                      <h4 className="font-bold text-gray-900 text-sm">{rec.title}</h4>
+                    </div>
+                    <p className="text-sm text-gray-600 leading-relaxed">{rec.message}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* DISCLAIMER */}
+        <p className="text-[11px] text-gray-400 leading-relaxed text-center px-2 mb-2">
+          {COACHING_DISCLAIMER}
+        </p>
 
       </div>
     </div>
