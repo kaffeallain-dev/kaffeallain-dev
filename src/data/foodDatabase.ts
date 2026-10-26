@@ -3,7 +3,7 @@ import { FoodItemTemplate } from "../types";
 export const commonFoods: FoodItemTemplate[] = [
   {
     "id": "sp1",
-    "name": "Ndolé",
+    "name": "Ndol�",
     "aliases": [
       "ndole",
       "bitterleaf soup",
@@ -546,7 +546,7 @@ export const commonFoods: FoodItemTemplate[] = [
     "id": "sp10",
     "name": "Nkui",
     "aliases": [
-      "bamiléké soup",
+      "bamil�k� soup",
       "sticky soup"
     ],
     "category": "Soups",
@@ -1258,7 +1258,7 @@ export const commonFoods: FoodItemTemplate[] = [
     "id": "st7",
     "name": "Pounded Yam",
     "aliases": [
-      "igname pilé"
+      "igname pil�"
     ],
     "category": "Starches",
     "calories": 350,
@@ -3669,7 +3669,7 @@ export const commonFoods: FoodItemTemplate[] = [
     "id": "sf2",
     "name": "Roasted Fish",
     "aliases": [
-      "poisson braisé",
+      "poisson brais�",
       "grilled fish"
     ],
     "category": "Street Foods",
@@ -3729,7 +3729,7 @@ export const commonFoods: FoodItemTemplate[] = [
     "id": "sf3",
     "name": "Roasted Pork",
     "aliases": [
-      "porc braisé",
+      "porc brais�",
       "pork"
     ],
     "category": "Street Foods",
@@ -4148,7 +4148,7 @@ export const commonFoods: FoodItemTemplate[] = [
     "id": "sf10",
     "name": "Roasted Corn",
     "aliases": [
-      "maïs braisé",
+      "ma�s brais�",
       "grilled corn"
     ],
     "category": "Street Foods",
@@ -5579,7 +5579,7 @@ export const commonFoods: FoodItemTemplate[] = [
     "id": "sn8",
     "name": "Popcorn",
     "aliases": [
-      "maïs soufflé",
+      "ma�s souffl�",
       "pop corn"
     ],
     "category": "Snacks",
@@ -5754,7 +5754,7 @@ export const commonFoods: FoodItemTemplate[] = [
     "id": "sn11",
     "name": "Tiger Nuts",
     "aliases": [
-      "pois sucrés",
+      "pois sucr�s",
       "tiger nut"
     ],
     "category": "Snacks",
@@ -6041,7 +6041,7 @@ export const commonFoods: FoodItemTemplate[] = [
     "id": "dr1",
     "name": "Folere",
     "aliases": [
-      "foléré",
+      "fol�r�",
       "bissap",
       "zobo",
       "hibiscus juice"
@@ -6351,7 +6351,7 @@ export const commonFoods: FoodItemTemplate[] = [
     "id": "dr6",
     "name": "Beer",
     "aliases": [
-      "bière",
+      "bi�re",
       "33 export",
       "mutzig",
       "kadji"
@@ -6645,7 +6645,7 @@ export const commonFoods: FoodItemTemplate[] = [
     "id": "dr11",
     "name": "Kossam",
     "aliases": [
-      "lait caillé",
+      "lait caill�",
       "yogurt",
       "yoghurt"
     ],
@@ -6884,7 +6884,7 @@ export const commonFoods: FoodItemTemplate[] = [
     "id": "dr15",
     "name": "Black Coffee",
     "aliases": [
-      "café",
+      "caf�",
       "nescafe"
     ],
     "category": "Drinks",
@@ -7173,7 +7173,7 @@ export const commonFoods: FoodItemTemplate[] = [
     "id": "fr5",
     "name": "Watermelon",
     "aliases": [
-      "pastèque"
+      "past�que"
     ],
     "category": "Fruits",
     "calories": 45,
@@ -7694,7 +7694,7 @@ export const commonFoods: FoodItemTemplate[] = [
     "id": "pr4",
     "name": "Goat Meat",
     "aliases": [
-      "viande de chèvre"
+      "viande de ch�vre"
     ],
     "category": "Protein Sources",
     "calories": 143,
@@ -7871,7 +7871,7 @@ export const commonFoods: FoodItemTemplate[] = [
     "id": "pr7",
     "name": "Smoked Fish",
     "aliases": [
-      "poisson fumé",
+      "poisson fum�",
       "bonga fish"
     ],
     "category": "Protein Sources",
@@ -8876,7 +8876,7 @@ export const commonFoods: FoodItemTemplate[] = [
   },
   {
     "id": "cp19",
-    "name": "Macaroni Sauté",
+    "name": "Macaroni Saut�",
     "aliases": [
       "macaroni",
       "fried mac"

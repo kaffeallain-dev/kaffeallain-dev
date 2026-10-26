@@ -17,7 +17,124 @@ export interface CameraEngineOptions {
   checkQuality?: boolean;
 }
 
+export interface CameraEngineLifecycleCallbacks {
+  onStatusChange?: (status: 'INITIAL' | 'UNAVAILABLE' | 'DENIED' | 'GRANTED', hasPermission: boolean | null) => void;
+  onStream?: (stream: MediaStream | null) => void;
+}
+
+export class CameraSession {
+  public status: 'INITIAL' | 'UNAVAILABLE' | 'DENIED' | 'GRANTED' = 'INITIAL';
+  public hasPermission: boolean | null = null;
+  public stream: MediaStream | null = null;
+  public isMounted: boolean = true;
+  private abortController: AbortController | null = null;
+  private callbacks?: CameraEngineLifecycleCallbacks;
+
+  constructor(callbacks?: CameraEngineLifecycleCallbacks) {
+    this.callbacks = callbacks;
+  }
+
+  public async start(facingMode: 'user' | 'environment' = 'environment'): Promise<MediaStream | null> {
+    if (this.abortController) {
+      this.abortController.abort();
+    }
+    const ac = new AbortController();
+    this.abortController = ac;
+
+    try {
+      const stream = await CameraEngine.requestStream(facingMode, { signal: ac.signal });
+
+      // Late stream resolving after unmount or cancellation:
+      if (!this.isMounted || ac.signal.aborted) {
+        CameraEngine.stopTracks(stream);
+        return null;
+      }
+
+      if (this.stream && this.stream !== stream) {
+        CameraEngine.stopTracks(this.stream);
+      }
+      this.stream = stream;
+      this.status = 'GRANTED';
+      this.hasPermission = true;
+      this.callbacks?.onStatusChange?.('GRANTED', true);
+      this.callbacks?.onStream?.(stream);
+      return stream;
+    } catch (err: any) {
+      if (!this.isMounted || ac.signal.aborted) {
+        return null;
+      }
+      this.status = CameraEngine.mapAcquisitionError(err);
+      this.hasPermission = false;
+      this.callbacks?.onStatusChange?.(this.status, false);
+      throw err;
+    }
+  }
+
+  public unmount(): void {
+    this.isMounted = false;
+    if (this.abortController) {
+      this.abortController.abort();
+    }
+    if (this.stream) {
+      CameraEngine.stopTracks(this.stream);
+      this.stream = null;
+      this.callbacks?.onStream?.(null);
+    }
+  }
+}
+
 export class CameraEngine {
+  public static async requestStream(
+    facingMode: 'user' | 'environment' = 'environment',
+    options?: { signal?: AbortSignal }
+  ): Promise<MediaStream> {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      const err = new Error("getUserMedia is not supported or not available in this environment.");
+      (err as any).name = 'NotFoundError';
+      throw err;
+    }
+
+    if (options?.signal?.aborted) {
+      const err = new Error("Camera request aborted");
+      (err as any).name = 'AbortError';
+      throw err;
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode }
+    });
+
+    if (options?.signal?.aborted) {
+      this.stopTracks(stream);
+      const err = new Error("Camera request aborted");
+      (err as any).name = 'AbortError';
+      throw err;
+    }
+
+    return stream;
+  }
+
+  public static stopTracks(stream: MediaStream | null | undefined): void {
+    if (!stream) return;
+    try {
+      const tracks = typeof stream.getTracks === 'function' ? stream.getTracks() : [];
+      for (const track of tracks) {
+        if (track && typeof track.stop === 'function') {
+          track.stop();
+        }
+      }
+    } catch (err) {
+      console.warn('Error stopping media stream tracks:', err);
+    }
+  }
+
+  public static mapAcquisitionError(err: any): 'DENIED' | 'UNAVAILABLE' {
+    if (err && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError')) {
+      return 'DENIED';
+    }
+    return 'UNAVAILABLE';
+  }
+
   private static async resizeImage(dataUrl: string, targetWidth: number, compressQuality: number): Promise<{ uri: string, width: number, height: number }> {
     return new Promise((resolve, reject) => {
       const img = new Image();
