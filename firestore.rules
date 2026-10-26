@@ -1,0 +1,92 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId
+        && !exists(/databases/$(database)/documents/_accountDeletion/$(userId));
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // User Profile & Settings
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false; // Users cannot list other users
+      
+      allow create: if isOwner(userId) && isValidId(userId) 
+        && incoming().userId == userId
+        && incoming().dailyGoal is number
+        && incoming().dailyGoal >= 500 && incoming().dailyGoal <= 10000;
+
+      allow update: if isOwner(userId) && isValidId(userId)
+        && incoming().userId == userId
+        && (!('dailyGoal' in incoming()) || (incoming().dailyGoal is number && incoming().dailyGoal >= 500 && incoming().dailyGoal <= 10000));
+
+      allow delete: if isOwner(userId);
+
+      // Meal records subcollection
+      match /meals/{mealId} {
+        allow get, list: if isOwner(userId);
+
+        allow create: if isOwner(userId) && isValidId(mealId)
+          && incoming().userId == userId
+          && incoming().name is string && incoming().name.size() > 0 && incoming().name.size() <= 200
+          && incoming().calories is number
+          && incoming().protein is number
+          && incoming().carbs is number
+          && incoming().fat is number
+          && incoming().servings is number
+          && incoming().timestamp is number;
+
+        allow update: if isOwner(userId) && isValidId(mealId)
+          && incoming().userId == userId
+          && existing().userId == userId
+          && incoming().name is string && incoming().name.size() > 0 && incoming().name.size() <= 200
+          && incoming().calories is number;
+
+        allow delete: if isOwner(userId) && isValidId(mealId);
+      }
+
+      // Custom foods subcollection
+      match /customFoods/{foodId} {
+        allow get, list: if isOwner(userId);
+
+        allow create: if isOwner(userId) && isValidId(foodId)
+          && incoming().userId == userId
+          && incoming().name is string && incoming().name.size() > 0 && incoming().name.size() <= 200
+          && incoming().calories is number
+          && incoming().protein is number
+          && incoming().carbs is number
+          && incoming().fat is number;
+
+        allow update: if isOwner(userId) && isValidId(foodId)
+          && incoming().userId == userId
+          && existing().userId == userId
+          && incoming().name is string && incoming().name.size() > 0 && incoming().name.size() <= 200;
+
+        allow delete: if isOwner(userId) && isValidId(foodId);
+      }
+    }
+  }
+}

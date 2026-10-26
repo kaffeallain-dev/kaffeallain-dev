@@ -20,10 +20,10 @@ export interface FoodAlias {
 
 export class FoodAliasRegistry {
   private static readonly registry: FoodAlias[] = [
-    // Ndolé
+    // Ndol�
     { alias: 'ndole', normalizedAlias: 'ndole', canonicalFoodId: 'sp1', aliasType: 'DIACRITIC_VARIANT', confidence: 'HIGH' },
-    { alias: 'ndolè', normalizedAlias: 'ndole', canonicalFoodId: 'sp1', aliasType: 'DIACRITIC_VARIANT', confidence: 'HIGH' },
-    { alias: 'ndolé', normalizedAlias: 'ndole', canonicalFoodId: 'sp1', aliasType: 'DIACRITIC_VARIANT', confidence: 'HIGH' },
+    { alias: 'ndol�', normalizedAlias: 'ndole', canonicalFoodId: 'sp1', aliasType: 'DIACRITIC_VARIANT', confidence: 'HIGH' },
+    { alias: 'ndol�', normalizedAlias: 'ndole', canonicalFoodId: 'sp1', aliasType: 'DIACRITIC_VARIANT', confidence: 'HIGH' },
     
     // Koki (Ambiguous handling: we point to both, so it triggers ambiguity)
     { alias: 'koki', normalizedAlias: 'koki', canonicalFoodId: 'td1', aliasType: 'COMMON_MISSPELLING', confidence: 'HIGH' },
@@ -51,7 +51,7 @@ export class FoodAliasRegistry {
     // Bobolo / Miondo
     { alias: 'bobolo', normalizedAlias: 'bobolo', canonicalFoodId: 'st8', aliasType: 'REGIONAL', confidence: 'HIGH' },
     { alias: 'miondo', normalizedAlias: 'miondo', canonicalFoodId: 'st9', aliasType: 'REGIONAL', confidence: 'HIGH' },
-    { alias: 'bâton de manioc', normalizedAlias: 'baton de manioc', canonicalFoodId: 'sn14', aliasType: 'FRENCH', confidence: 'HIGH' },
+    { alias: 'b�ton de manioc', normalizedAlias: 'baton de manioc', canonicalFoodId: 'sn14', aliasType: 'FRENCH', confidence: 'HIGH' },
 
     // Plantain
     { alias: 'plantain', normalizedAlias: 'plantain', canonicalFoodId: 'st10', aliasType: 'ENGLISH', confidence: 'HIGH' },

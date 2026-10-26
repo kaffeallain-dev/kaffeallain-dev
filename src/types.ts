@@ -1,20 +1,20 @@
 export type MealCategory = 'Breakfast' | 'Lunch' | 'Dinner' | 'Snacks';
 
-export type FoodCategory =
-  | 'Soups'
-  | 'Starches'
-  | 'Breakfast Foods'
-  | 'Campus Meals'
+export type FoodCategory = 
+  | 'Soups' 
+  | 'Starches' 
+  | 'Breakfast Foods' 
+  | 'Campus Meals' 
   | 'Frequently Eaten by Students'
-  | 'Street Foods'
-  | 'Traditional Dishes'
-  | 'Snacks'
-  | 'Drinks'
-  | 'Fruits'
+  | 'Street Foods' 
+  | 'Traditional Dishes' 
+  | 'Snacks' 
+  | 'Drinks' 
+  | 'Fruits' 
   | 'Protein Sources'
   | 'Custom'
   | 'International'
-  | 'Other';
+  | string;
 
 export type FoodType = 'Individual' | 'Combo' | 'Uncertain' | 'Duplicate';
 
@@ -62,16 +62,11 @@ export interface ConsumptionRecord {
   protein: number;
   carbs: number;
   fat: number;
-  servings: number;
+  servings: number; 
   mealCategory: MealCategory;
   timestamp: number;
-}
-
-/** A single timestamped body-weight measurement, used for trend analysis. */
-export interface WeightEntry {
-  id: string;
-  timestamp: number; // ms since epoch
-  weightKg: number;
+  foodId?: string;
+  servingSizeText?: string;
 }
 
 export interface UserProfile {
@@ -85,13 +80,19 @@ export interface UserProfile {
   primaryGoal?: 'Lose Weight' | 'Maintain Weight' | 'Gain Weight' | 'Build Muscle' | 'Eat Healthier';
   healthConditions?: string[];
   preferences?: string[];
+  onboardingCompleted?: boolean;
 }
 
 export interface UserSettings {
   id: string;
   dailyGoal: number;
   profile?: UserProfile;
+  onboardingCompleted?: boolean;
+  language?: 'en' | 'fr';
+  verifiedOwnerUid?: string;
 }
+
+export type AppLanguage = 'en' | 'fr';
 
 
 export interface FoodKnowledge {

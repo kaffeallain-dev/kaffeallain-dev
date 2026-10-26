@@ -93,26 +93,40 @@ export class RecommendationEngine {
     };
   }
 
-  static analyzeFood(food: FoodItemTemplate | ConsumptionRecord): FoodAnalysisResult {
+  static analyzeFood(food: FoodItemTemplate | ConsumptionRecord | null | undefined): FoodAnalysisResult {
+    if (!food || typeof food !== 'object' || !food.name || typeof food.name !== 'string' || !food.name.trim()) {
+      return {
+        bestFor: [],
+        goodSourceOf: [],
+        potentialConcerns: [],
+        recommendedFrequency: 'Daily',
+        betterAlternative: 'None',
+        suggestedPairing: 'Water',
+        healthScore: 80,
+        satietyScore: 50
+      };
+    }
+
     const knowledge = NutritionKnowledgeRepository.searchFood(food.name);
     
     if (knowledge) {
       return {
-        bestFor: knowledge.foodIntelligence.bestFor || [],
-        goodSourceOf: knowledge.foodIntelligence.goodSourceOf || [],
-        potentialConcerns: knowledge.foodIntelligence.concerns || [],
-        recommendedFrequency: knowledge.foodIntelligence.recommendedFrequency || 'Daily',
-        betterAlternative: knowledge.foodRelationships.betterAlternatives?.[0] || 'None',
-        suggestedPairing: knowledge.foodRelationships.suggestedPairings?.[0] || 'Water',
-        healthScore: knowledge.scores.healthScore || 80,
-        satietyScore: knowledge.scores.satietyScore || 50
+        bestFor: knowledge.foodIntelligence?.bestFor || [],
+        goodSourceOf: knowledge.foodIntelligence?.goodSourceOf || [],
+        potentialConcerns: knowledge.foodIntelligence?.concerns || [],
+        recommendedFrequency: knowledge.foodIntelligence?.recommendedFrequency || 'Daily',
+        betterAlternative: knowledge.foodRelationships?.betterAlternatives?.[0] || 'None',
+        suggestedPairing: knowledge.foodRelationships?.suggestedPairings?.[0] || 'Water',
+        healthScore: knowledge.scores?.healthScore || 80,
+        satietyScore: knowledge.scores?.satietyScore || 50
       };
     }
 
     // Fallback for foods not in the knowledge base yet
     let richFood: any = food;
     if (!richFood.bestFor) {
-       const matched = commonFoods.find(f => f.name.toLowerCase() === food.name.toLowerCase());
+       const foodName = (food.name || '').toLowerCase();
+       const matched = commonFoods.find(f => f?.name && f.name.toLowerCase() === foodName);
        if (matched && matched.bestFor) {
            richFood = matched;
        }
@@ -130,7 +144,6 @@ export class RecommendationEngine {
     };
   }
 
-
   static getContextualRecommendation(
     profile: UserProfile | undefined,
     currentDayLogs: ConsumptionRecord[],
@@ -143,7 +156,9 @@ export class RecommendationEngine {
     actionType: "New Meal" | "Add Side" | "Swap Ingredient" | "Modify Preparation";
   } {
     const goal = profile?.primaryGoal || 'Eat Healthier';
-    const recentLogs = [...currentDayLogs, ...weeklyLogs];
+    const safeDayLogs = (currentDayLogs || []).filter(l => l && typeof l === 'object');
+    const safeWeeklyLogs = (weeklyLogs || []).filter(l => l && typeof l === 'object');
+    const recentLogs = [...safeDayLogs, ...safeWeeklyLogs];
     
     // 1. Identify Nutritional/Behavioral Opportunity
     let missingVeggies = true;
@@ -152,12 +167,12 @@ export class RecommendationEngine {
     let highSugar = false;
     let lowProtein = goal === 'Build Muscle'; // default to true if muscle building
     
-    const todayProtein = currentDayLogs.reduce((sum, l) => sum + (l.protein || 0), 0);
+    const todayProtein = safeDayLogs.reduce((sum, l) => sum + (l.protein || 0), 0);
     if (todayProtein > 40) lowProtein = false;
 
-    currentDayLogs.forEach(log => {
-      const name = log.name.toLowerCase();
-      const knowledge = NutritionKnowledgeRepository.searchFood(log.name);
+    safeDayLogs.forEach(log => {
+      const name = (log.name || '').toLowerCase();
+      const knowledge = log.name ? NutritionKnowledgeRepository.searchFood(log.name) : undefined;
       
       const authCategory = knowledge ? knowledge.category : 'Unknown';
       const authFiber = knowledge ? knowledge.nutrition.fiber : 0;
@@ -165,7 +180,7 @@ export class RecommendationEngine {
       const analysis = this.analyzeFood(log);
       
       const isVeggieLog = authCategory === 'Vegetables' || authCategory === 'Soups' || name.includes('eru') || name.includes('ndolé') || name.includes('salad') || name.includes('veg');
-      const isFiberLog = authFiber >= 3 || (analysis.goodSourceOf && analysis.goodSourceOf.some(s => s.toLowerCase().includes('fiber'))) || (analysis.bestFor && analysis.bestFor.some(s => s.toLowerCase().includes('digestion')));
+      const isFiberLog = authFiber >= 3 || (analysis.goodSourceOf && analysis.goodSourceOf.some(s => s && s.toLowerCase().includes('fiber'))) || (analysis.bestFor && analysis.bestFor.some(s => s && s.toLowerCase().includes('digestion')));
       
       if (isVeggieLog) missingVeggies = false;
       if (isFiberLog) missingFiber = false;
@@ -175,24 +190,46 @@ export class RecommendationEngine {
     });
 
     // Extract recent food names to penalize repetition
-    const recentFoodNames = recentLogs.slice(0, 10).map(l => l.name.toLowerCase());
-    const veryRecentFoodNames = currentDayLogs.map(l => l.name.toLowerCase());
+    const recentFoodNames = recentLogs.slice(0, 10).map(l => (l.name || '').toLowerCase()).filter(Boolean);
+    const veryRecentFoodNames = safeDayLogs.map(l => (l.name || '').toLowerCase()).filter(Boolean);
     
     // Extract user preferences (most frequently eaten foods)
     const frequencyMap: Record<string, number> = {};
     recentLogs.forEach(l => {
-      frequencyMap[l.name] = (frequencyMap[l.name] || 0) + 1;
+      if (l.name) {
+        frequencyMap[l.name] = (frequencyMap[l.name] || 0) + 1;
+      }
     });
 
     // 2. Evaluate Candidates
+    const safeAvailableFoods = (availableFoods || []).filter(f => f && typeof f === 'object' && f.name && typeof f.name === 'string');
+    if (safeAvailableFoods.length === 0) {
+      const fallbackFood: FoodItemTemplate = {
+        id: 'fallback-meal',
+        name: 'Ndole with Plantains',
+        calories: 550,
+        protein: 28,
+        carbs: 45,
+        fat: 22,
+        servingSizeText: '1 portion (400g)',
+        category: 'Soups'
+      };
+      return {
+        food: fallbackFood,
+        reason: 'Recommended because it is a balanced local meal to keep you on track.',
+        confidence: 'Low',
+        actionType: 'New Meal'
+      };
+    }
+
     let bestScore = -9999;
-    let bestCandidate = availableFoods[0];
+    let bestCandidate = safeAvailableFoods[0];
     let bestReason = "Recommended because it is a balanced option to keep you on track.";
     let actionType: "New Meal" | "Add Side" | "Swap Ingredient" | "Modify Preparation" = "New Meal";
 
-    for (const food of availableFoods) {
+    for (const food of safeAvailableFoods) {
       let score = 50;
-      const name = food.name.toLowerCase();
+      const name = (food.name || '').toLowerCase();
       
       const knowledge = NutritionKnowledgeRepository.searchFood(food.name);
       const analysis = this.analyzeFood(food);
@@ -286,16 +323,24 @@ export class RecommendationEngine {
     return { food: bestCandidate, reason: bestReason, confidence, actionType };
   }
 
-  static evaluateGoalCompatibility(food: FoodItemTemplate | ConsumptionRecord, goal: string) {
+  static evaluateGoalCompatibility(food: FoodItemTemplate | ConsumptionRecord | null | undefined, goal?: string | null) {
+    if (!food || typeof food !== 'object' || !food.name || typeof food.name !== 'string' || !food.name.trim()) {
+      return {
+        level: 'Moderate',
+        reason: 'Select a food to evaluate goal compatibility.'
+      };
+    }
+
+    const currentGoal = goal || 'Eat Healthier';
     const knowledge = NutritionKnowledgeRepository.searchFood(food.name);
     
-    if (knowledge) {
+    if (knowledge && knowledge.goalCompatibility) {
        let goalKey: keyof typeof knowledge.goalCompatibility | undefined;
-       if (goal === 'Lose Weight') goalKey = 'weightLoss';
-       else if (goal === 'Maintain Weight') goalKey = 'weightMaintenance';
-       else if (goal === 'Gain Weight') goalKey = 'weightGain';
-       else if (goal === 'Build Muscle') goalKey = 'muscleBuilding';
-       else if (goal === 'Eat Healthier') goalKey = 'healthyEating';
+       if (currentGoal === 'Lose Weight') goalKey = 'weightLoss';
+       else if (currentGoal === 'Maintain Weight') goalKey = 'weightMaintenance';
+       else if (currentGoal === 'Gain Weight') goalKey = 'weightGain';
+       else if (currentGoal === 'Build Muscle') goalKey = 'muscleBuilding';
+       else if (currentGoal === 'Eat Healthier') goalKey = 'healthyEating';
 
        if (goalKey && knowledge.goalCompatibility[goalKey]) {
           return knowledge.goalCompatibility[goalKey];
@@ -304,21 +349,22 @@ export class RecommendationEngine {
 
     let richFood: any = food;
     if (!richFood.goalCompatibility) {
-       const matched = commonFoods.find(f => f.name.toLowerCase() === food.name.toLowerCase());
+       const foodName = food.name.toLowerCase();
+       const matched = commonFoods.find(f => f?.name && f.name.toLowerCase() === foodName);
        if (matched && matched.goalCompatibility) {
            richFood = matched;
        }
     }
 
-    if (richFood.goalCompatibility && richFood.goalCompatibility[goal]) {
-       return richFood.goalCompatibility[goal];
+    if (richFood.goalCompatibility && richFood.goalCompatibility[currentGoal]) {
+       return richFood.goalCompatibility[currentGoal];
     }
 
     const analysis = this.analyzeFood(food);
     let level = 'Moderate';
     let reason = 'Can be enjoyed in moderation.';
     
-    if (goal === 'Lose Weight') {
+    if (currentGoal === 'Lose Weight') {
       if (analysis.healthScore >= 80 && analysis.satietyScore >= 60) {
         level = 'Excellent';
         reason = 'Low in calorie density and keeps you full.';
@@ -326,7 +372,7 @@ export class RecommendationEngine {
         level = 'Poor';
         reason = 'High in calories and may slow down weight loss.';
       }
-    } else if (goal === 'Build Muscle') {
+    } else if (currentGoal === 'Build Muscle') {
       if (analysis.goodSourceOf.includes('Protein')) {
         level = 'Excellent';
         reason = 'Provides essential amino acids for muscle repair.';
@@ -334,7 +380,7 @@ export class RecommendationEngine {
         level = 'Moderate';
         reason = 'Provides necessary energy for workouts.';
       }
-    } else if (goal === 'Gain Weight') {
+    } else if (currentGoal === 'Gain Weight') {
       if (analysis.bestFor.includes('Weight Gain')) {
         level = 'Excellent';
         reason = 'Helps you easily reach your calorie surplus.';
@@ -364,9 +410,10 @@ export class RecommendationEngine {
     dailyGoal: number
   ): DailySummaryResult {
     const goal = profile?.primaryGoal || 'Eat Healthier';
-    const cals = currentDayLogs.reduce((sum, c) => sum + c.calories, 0);
-    const protein = currentDayLogs.reduce((sum, c) => sum + (c.protein || 0), 0);
-    const nutritionScore = this.calculateOverallScore(currentDayLogs, dailyGoal, goal);
+    const safeLogs = (currentDayLogs || []).filter(c => c && typeof c === 'object');
+    const cals = safeLogs.reduce((sum, c) => sum + (c.calories || 0), 0);
+    const protein = safeLogs.reduce((sum, c) => sum + (c.protein || 0), 0);
+    const nutritionScore = this.calculateOverallScore(safeLogs, dailyGoal, goal);
     
     let biggestSuccess = "You successfully logged your meals today.";
     if (protein > 50) biggestSuccess = "Excellent protein intake today, supporting muscle maintenance and satiety.";
@@ -377,7 +424,7 @@ export class RecommendationEngine {
     let dailyFocus = "Keep aiming for a colorful plate with a good mix of carbohydrates, protein, and fresh foods.";
     let goalProgress = "On Track";
     
-    if (currentDayLogs.length === 0) {
+    if (safeLogs.length === 0) {
       biggestSuccess = "Taking the first step by opening the app.";
       improvement = "You haven't logged any meals today.";
       dailyFocus = "Start logging your meals to receive personalized coaching. Even small snacks matter!";
@@ -429,21 +476,23 @@ export class RecommendationEngine {
     if (profile?.age && profile?.weightKg && profile?.heightCm && profile?.activityLevel && profile?.primaryGoal) {
       confidence += 0.3;
     }
-    if (logs.length > 2) {
+    const safeLogs = (logs || []).filter(c => c && typeof c === 'object');
+    if (safeLogs.length > 2) {
       confidence += 0.15;
     }
     return Math.min(1.0, confidence);
   }
 
   private static calculateOverallScore(logs: ConsumptionRecord[], dailyGoal: number, goal: string): number {
-    if (logs.length === 0) return 0;
-    const cals = logs.reduce((sum, c) => sum + c.calories, 0);
-    const protein = logs.reduce((sum, c) => sum + (c.protein || 0), 0);
+    const safeLogs = (logs || []).filter(c => c && typeof c === 'object');
+    if (safeLogs.length === 0) return 0;
+    const cals = safeLogs.reduce((sum, c) => sum + (c.calories || 0), 0);
+    const protein = safeLogs.reduce((sum, c) => sum + (c.protein || 0), 0);
     
     let score = 80;
-    const hasSugary = logs.some(c => c.name.toLowerCase().includes('coke') || c.name.toLowerCase().includes('soda'));
-    const hasFried = logs.some(c => c.name.toLowerCase().includes('fried'));
-    const hasVeggie = logs.some(c => c.name.toLowerCase().includes('salad') || c.name.toLowerCase().includes('eru') || c.name.toLowerCase().includes('vegetable'));
+    const hasSugary = safeLogs.some(c => (c.name || '').toLowerCase().includes('coke') || (c.name || '').toLowerCase().includes('soda'));
+    const hasFried = safeLogs.some(c => (c.name || '').toLowerCase().includes('fried'));
+    const hasVeggie = safeLogs.some(c => (c.name || '').toLowerCase().includes('salad') || (c.name || '').toLowerCase().includes('eru') || (c.name || '').toLowerCase().includes('vegetable'));
     
     if (hasSugary) score -= 15;
     if (hasFried) score -= 10;
@@ -458,10 +507,11 @@ export class RecommendationEngine {
   }
 
   private static evaluateGoalStatus(logs: ConsumptionRecord[], dailyGoal: number, goal: string): GoalStatus {
-    const cals = logs.reduce((sum, c) => sum + c.calories, 0);
-    const protein = logs.reduce((sum, c) => sum + (c.protein || 0), 0);
+    const safeLogs = (logs || []).filter(c => c && typeof c === 'object');
+    const cals = safeLogs.reduce((sum, c) => sum + (c.calories || 0), 0);
+    const protein = safeLogs.reduce((sum, c) => sum + (c.protein || 0), 0);
 
-    if (logs.length === 0) {
+    if (safeLogs.length === 0) {
       return { status: "No Data", reason: "Start logging your meals to see how they impact your goals." };
     }
 
@@ -482,7 +532,8 @@ export class RecommendationEngine {
   }
 
   private static generateDailyInsights(logs: ConsumptionRecord[], dailyGoal: number, goal: string) {
-    if (logs.length === 0) {
+    const safeLogs = (logs || []).filter(c => c && typeof c === 'object');
+    if (safeLogs.length === 0) {
       return {
         biggestWin: { title: "Getting Started", description: "Every journey begins with a single step." },
         improvement: { title: "Log a Meal", description: "You haven't logged any food today." },
@@ -491,9 +542,9 @@ export class RecommendationEngine {
       };
     }
 
-    const cals = logs.reduce((sum, c) => sum + c.calories, 0);
-    const protein = logs.reduce((sum, c) => sum + (c.protein || 0), 0);
-    const sortedLogs = [...logs].sort((a, b) => b.timestamp - a.timestamp);
+    const cals = safeLogs.reduce((sum, c) => sum + (c.calories || 0), 0);
+    const protein = safeLogs.reduce((sum, c) => sum + (c.protein || 0), 0);
+    const sortedLogs = [...safeLogs].sort((a, b) => b.timestamp - a.timestamp);
 
     let biggestWin = { title: "Consistent Tracking", description: "You successfully logged meals today." };
     if (protein > 30) biggestWin = { title: "Strong Protein Intake", description: "You've included good sources of protein which helps with satiety and recovery." };
@@ -503,13 +554,13 @@ export class RecommendationEngine {
     let nextAction = { title: "Give your next meal a little more balance", description: "Your meals today have been light on vegetables. Adding one serving to your next meal could improve variety and fiber." };
     let educationalInsight = { title: "Did You Know?", description: "Vegetables add volume to your meals without adding many calories, keeping you full." };
 
-    const sugaryDrink = sortedLogs.find(c => c.name.toLowerCase().includes('coke') || c.name.toLowerCase().includes('soda') || c.name.toLowerCase().includes('juice'));
-    const waterAfterSugary = sugaryDrink && sortedLogs.find(c => c.name.toLowerCase().includes('water') && c.timestamp > sugaryDrink.timestamp);
-    const friedFood = sortedLogs.find(c => c.name.toLowerCase().includes('fried') || c.name.toLowerCase().includes('puff'));
+    const sugaryDrink = sortedLogs.find(c => (c.name || '').toLowerCase().includes('coke') || (c.name || '').toLowerCase().includes('soda') || (c.name || '').toLowerCase().includes('juice'));
+    const waterAfterSugary = sugaryDrink && sortedLogs.find(c => (c.name || '').toLowerCase().includes('water') && c.timestamp > sugaryDrink.timestamp);
+    const friedFood = sortedLogs.find(c => (c.name || '').toLowerCase().includes('fried') || (c.name || '').toLowerCase().includes('puff'));
 
     if (sugaryDrink && !waterAfterSugary) {
-      improvement = { title: "Reduce Sugary Drinks", description: `${sugaryDrink.name} contributed unnecessary calories today.` };
-      nextAction = { title: "Hydrate for your next choice", description: `You had ${sugaryDrink.name} earlier. Replacing your next drink with water can help stabilize your energy and reduce hidden calories.` };
+      improvement = { title: "Reduce Sugary Drinks", description: `${sugaryDrink.name || 'Sugary drink'} contributed unnecessary calories today.` };
+      nextAction = { title: "Hydrate for your next choice", description: `You had ${sugaryDrink.name || 'a sugary drink'} earlier. Replacing your next drink with water can help stabilize your energy and reduce hidden calories.` };
       educationalInsight = { title: "Did You Know?", description: "Sugary drinks cause rapid spikes in blood sugar, often followed by crashes that increase hunger." };
     } else if (sugaryDrink && waterAfterSugary) {
       biggestWin = { title: "Hydration Focus Completed ✓", description: "You replaced a sugary drink habit by logging water." };
@@ -517,8 +568,8 @@ export class RecommendationEngine {
       nextAction = { title: "Keep the momentum going", description: "You've already made a great swap with water today. Consider adding a high-fiber side to your next meal to maintain steady energy." };
       educationalInsight = { title: "Did You Know?", description: "Water helps your body process nutrients and keeps you feeling full longer." };
     } else if (friedFood) {
-      improvement = { title: "Watch the Oil", description: `${friedFood.name} adds a significant amount of fat.` };
-      nextAction = { title: "Opt for a lighter preparation", description: `Since you had ${friedFood.name} earlier, choosing a boiled or grilled option next can naturally balance your fat intake for the day.` };
+      improvement = { title: "Watch the Oil", description: `${friedFood.name || 'Fried food'} adds a significant amount of fat.` };
+      nextAction = { title: "Opt for a lighter preparation", description: `Since you had ${friedFood.name || 'fried food'} earlier, choosing a boiled or grilled option next can naturally balance your fat intake for the day.` };
       educationalInsight = { title: "Did You Know?", description: "Frying food significantly increases its calorie density without improving how full it makes you feel." };
     } else if (protein < 20 && goal === 'Build Muscle') {
       improvement = { title: "Increase Protein", description: "Your protein intake is quite low so far today." };
@@ -532,12 +583,13 @@ export class RecommendationEngine {
   private static analyzeMeals(logs: ConsumptionRecord[], goal: string): MealAnalysisResult[] {
     const meals = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
     const results: MealAnalysisResult[] = [];
+    const safeLogs = (logs || []).filter(c => c && typeof c === 'object');
 
     for (const meal of meals) {
-      const mealLogs = logs.filter(c => c.mealCategory === meal);
+      const mealLogs = safeLogs.filter(c => c.mealCategory === meal);
       if (mealLogs.length === 0) continue;
 
-      const cals = mealLogs.reduce((sum, c) => sum + c.calories, 0);
+      const cals = mealLogs.reduce((sum, c) => sum + (c.calories || 0), 0);
       const protein = mealLogs.reduce((sum, c) => sum + (c.protein || 0), 0);
       
       let nutritionScore = 80;
@@ -551,21 +603,21 @@ export class RecommendationEngine {
         nutritionScore += 10;
       }
       
-      const hasVeggie = mealLogs.some(c => c.name.toLowerCase().includes('salad') || c.name.toLowerCase().includes('eru') || c.name.toLowerCase().includes('fruit'));
+      const hasVeggie = mealLogs.some(c => (c.name || '').toLowerCase().includes('salad') || (c.name || '').toLowerCase().includes('eru') || (c.name || '').toLowerCase().includes('fruit'));
       if (hasVeggie) {
          positiveChoice = "Great choice including fiber-rich or fresh foods.";
          nutritionScore += 15;
       }
 
-      const sugaryDrink = mealLogs.find(c => c.name.toLowerCase().includes('coke') || c.name.toLowerCase().includes('soda'));
-      const friedFood = mealLogs.find(c => c.name.toLowerCase().includes('fried'));
+      const sugaryDrink = mealLogs.find(c => (c.name || '').toLowerCase().includes('coke') || (c.name || '').toLowerCase().includes('soda'));
+      const friedFood = mealLogs.find(c => (c.name || '').toLowerCase().includes('fried'));
 
       if (sugaryDrink) {
-        improvement = `This meal included a significant amount of sugar from ${sugaryDrink.name.toLowerCase()}.`;
+        improvement = `This meal included a significant amount of sugar from ${(sugaryDrink.name || '').toLowerCase()}.`;
         nextSuggestion = "Replacing sugary drinks with water would significantly reduce calories.";
         nutritionScore -= 20;
       } else if (friedFood) {
-        improvement = `This meal was heavy due to ${friedFood.name.toLowerCase()}.`;
+        improvement = `This meal was heavy due to ${(friedFood.name || '').toLowerCase()}.`;
         nextSuggestion = "Choosing a grilled or boiled option next time would reduce unnecessary calories.";
         nutritionScore -= 15;
       }
@@ -602,11 +654,12 @@ export class RecommendationEngine {
     let veggieCount = 0;
     let highProteinCount = 0;
 
-    const daysLogged = new Set(weeklyLogs.map(c => new Date(c.timestamp).toDateString()));
+    const safeLogs = (weeklyLogs || []).filter(c => c && typeof c === 'object');
+    const daysLogged = new Set(safeLogs.map(c => new Date(c.timestamp).toDateString()));
 
-    weeklyLogs.forEach(c => {
+    safeLogs.forEach(c => {
       if (c.mealCategory === 'Breakfast') breakfastCount++;
-      const name = c.name.toLowerCase();
+      const name = (c.name || '').toLowerCase();
       if (name.includes('coke') || name.includes('soda') || name.includes('juice')) sugaryDrinks++;
       if (name.includes('fried') || name.includes('puff')) friedFoods++;
       if (name.includes('salad') || name.includes('eru') || name.includes('vegetable')) veggieCount++;

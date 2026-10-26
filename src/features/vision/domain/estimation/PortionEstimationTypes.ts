@@ -16,7 +16,7 @@ export type FoodShapeCategory =
   | 'SPHERICAL'    // Puff Puff, Akara
   | 'CYLINDRICAL'  // Plantain, Yam, Macabo, Cassava
   | 'MOUNDED'      // Rice, Beans, Eba, Fufu, Corn Chaff
-  | 'FLAT_LIQUID'  // Ndolé, Eru, Pap
+  | 'FLAT_LIQUID'  // Ndol�, Eru, Pap
   | 'IRREGULAR';   // Spaghetti, Bread, Koki, Avocado
 
 export interface FoodDensityProfile {

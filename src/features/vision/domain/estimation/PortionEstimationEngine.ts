@@ -19,7 +19,7 @@ export class PortionEstimationEngine {
     'eba': { density: 1.1, shapeCategory: 'SPHERICAL', typicalUnit: 'wraps', unitWeightMap: { 'small wrap': 200, 'large wrap': 400 } },
     'fufu': { density: 1.2, shapeCategory: 'SPHERICAL', typicalUnit: 'wraps', unitWeightMap: { 'small wrap': 250, 'large wrap': 500 } },
     'koki': { density: 0.9, shapeCategory: 'IRREGULAR', typicalUnit: 'bundles', unitWeightMap: { '1 bundle': 200 } },
-    'ndolé': { density: 1.05, shapeCategory: 'FLAT_LIQUID', typicalUnit: 'tablespoons', unitWeightMap: { '2 tablespoons': 60, '1 plate': 250 } },
+    'ndol�': { density: 1.05, shapeCategory: 'FLAT_LIQUID', typicalUnit: 'tablespoons', unitWeightMap: { '2 tablespoons': 60, '1 plate': 250 } },
     'eru': { density: 0.95, shapeCategory: 'FLAT_LIQUID', typicalUnit: 'plates', unitWeightMap: { 'small plate': 200, 'medium plate': 300 } },
     'corn chaff': { density: 0.9, shapeCategory: 'MOUNDED', typicalUnit: 'plates', unitWeightMap: { 'medium plate': 350 } },
     'spaghetti': { density: 0.7, shapeCategory: 'IRREGULAR', typicalUnit: 'plates', unitWeightMap: { 'medium plate': 250 } },

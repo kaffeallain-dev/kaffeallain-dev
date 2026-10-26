@@ -2,14 +2,17 @@ import React, { useEffect } from 'react';
 import { X, Zap, Image as ImageIcon, RefreshCcw } from 'lucide-react';
 import { useCameraEngine } from '../features/vision/presentation/acquisition/useCameraEngine';
 import { ProcessedImageResult } from '../features/vision/presentation/acquisition/CameraEngine';
+import { useI18n } from '../lib/i18n';
 
 interface Props {
   onCapture: (image: ProcessedImageResult) => void;
   onClose: () => void;
+  onManualEntry?: () => void;
 }
 
-export function CameraScreen({ onCapture, onClose }: Props) {
+export function CameraScreen({ onCapture, onClose, onManualEntry }: Props) {
   const { videoRef, state, requestPermissions, takePicture, toggleCameraType, pickFromGallery } = useCameraEngine();
+  const { t } = useI18n();
 
   useEffect(() => {
     requestPermissions();
@@ -33,10 +36,19 @@ export function CameraScreen({ onCapture, onClose }: Props) {
     <div className="absolute inset-0 bg-black z-50 flex flex-col">
       {/* Top Controls */}
       <div className="absolute top-0 left-0 right-0 p-6 pt-14 flex justify-between items-center z-20 bg-gradient-to-b from-black/50 to-transparent">
-        <button onClick={onClose} className="p-2 bg-black/30 rounded-full text-white backdrop-blur-md">
+        <button 
+          onClick={onClose} 
+          aria-label={t('camera_close') || 'Close'}
+          title={t('camera_close') || 'Close'}
+          className="p-2 bg-black/30 rounded-full text-white backdrop-blur-md hover:bg-black/50 transition-colors"
+        >
           <X size={24} />
         </button>
-        <button className="p-2 bg-black/30 rounded-full text-white backdrop-blur-md">
+        <button 
+          aria-label="Flash"
+          title="Flash"
+          className="p-2 bg-black/30 rounded-full text-white backdrop-blur-md"
+        >
           <Zap size={24} />
         </button>
       </div>
@@ -45,33 +57,43 @@ export function CameraScreen({ onCapture, onClose }: Props) {
       <div className="flex-1 relative overflow-hidden bg-gray-900 rounded-3xl m-2 mt-24 mb-32">
         {state.status === 'UNAVAILABLE' ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-30 bg-gray-900">
-            <p className="text-white mb-2 font-bold text-lg">Camera unavailable in this preview</p>
-            <p className="text-gray-400 mb-6 text-sm">Your browser or the preview environment is blocking the camera.</p>
-            <div className="flex gap-4">
-              <button onClick={requestPermissions} className="bg-emerald-600 text-white px-6 py-2 rounded-full font-bold shadow-lg shadow-emerald-500/20 active:scale-95 transition-transform">
-                Retry Camera
+            <p className="text-white mb-2 font-bold text-lg">{t('camera_unavailable_title')}</p>
+            <p className="text-gray-400 mb-6 text-sm">{t('camera_unavailable_desc')}</p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <button onClick={requestPermissions} className="bg-emerald-600 text-white px-5 py-2 rounded-full font-bold shadow-lg shadow-emerald-500/20 active:scale-95 transition-transform text-sm">
+                {t('camera_retry')}
               </button>
-              <button onClick={handleGallery} className="bg-gray-800 text-white px-6 py-2 rounded-full font-bold border border-gray-700 active:scale-95 transition-transform">
-                Upload Photo
+              <button onClick={handleGallery} className="bg-gray-800 text-white px-5 py-2 rounded-full font-bold border border-gray-700 active:scale-95 transition-transform text-sm">
+                {t('camera_upload_photo')}
               </button>
+              {onManualEntry && (
+                <button onClick={onManualEntry} className="bg-gray-700 hover:bg-gray-600 text-white px-5 py-2 rounded-full font-bold border border-gray-600 active:scale-95 transition-transform text-sm">
+                  {t('camera_enter_manually')}
+                </button>
+              )}
             </div>
           </div>
         ) : state.status === 'DENIED' ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-30 bg-gray-900">
-            <p className="text-white mb-2 font-bold text-lg">Camera Access Denied</p>
-            <p className="text-gray-400 mb-6 text-sm">Please allow camera access in your browser settings to scan meals.</p>
-            <div className="flex gap-4">
-              <button onClick={requestPermissions} className="bg-emerald-600 text-white px-6 py-2 rounded-full font-bold shadow-lg shadow-emerald-500/20 active:scale-95 transition-transform">
-                Retry
+            <p className="text-white mb-2 font-bold text-lg">{t('camera_denied_title')}</p>
+            <p className="text-gray-400 mb-6 text-sm">{t('camera_denied_desc')}</p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <button onClick={requestPermissions} className="bg-emerald-600 text-white px-5 py-2 rounded-full font-bold shadow-lg shadow-emerald-500/20 active:scale-95 transition-transform text-sm">
+                {t('camera_retry')}
               </button>
-              <button onClick={handleGallery} className="bg-gray-800 text-white px-6 py-2 rounded-full font-bold border border-gray-700 active:scale-95 transition-transform">
-                Upload Photo
+              <button onClick={handleGallery} className="bg-gray-800 text-white px-5 py-2 rounded-full font-bold border border-gray-700 active:scale-95 transition-transform text-sm">
+                {t('camera_upload_photo')}
               </button>
+              {onManualEntry && (
+                <button onClick={onManualEntry} className="bg-gray-700 hover:bg-gray-600 text-white px-5 py-2 rounded-full font-bold border border-gray-600 active:scale-95 transition-transform text-sm">
+                  {t('camera_enter_manually')}
+                </button>
+              )}
             </div>
           </div>
         ) : state.status === 'INITIAL' ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-30 bg-gray-900">
-            <p className="text-white font-bold text-lg">Starting camera...</p>
+            <p className="text-white font-bold text-lg">{t('camera_starting')}</p>
           </div>
         ) : (
           <video 
@@ -91,25 +113,37 @@ export function CameraScreen({ onCapture, onClose }: Props) {
             <div className="w-8 h-8 border-b-2 border-l-2 border-emerald-400 absolute bottom-0 left-0 rounded-bl-3xl"></div>
             <div className="w-8 h-8 border-b-2 border-r-2 border-emerald-400 absolute bottom-0 right-0 rounded-br-3xl"></div>
           </div>
-          <p className="text-white/70 text-center absolute top-[15%] w-full text-sm font-medium">Position food in frame</p>
+          <p className="text-white/70 text-center absolute top-[15%] w-full text-sm font-medium">{t('camera_position_food')}</p>
         </div>
       </div>
 
       {/* Bottom Controls */}
       <div className="absolute bottom-0 left-0 right-0 h-32 flex justify-around items-center px-8 pb-8 z-20">
-        <button onClick={handleGallery} className="p-3 bg-gray-800 rounded-full text-white">
+        <button 
+          onClick={handleGallery} 
+          aria-label={t('camera_gallery') || 'Choose from gallery'}
+          title={t('camera_gallery') || 'Choose from gallery'}
+          className="p-3 bg-gray-800 rounded-full text-white hover:bg-gray-700 transition-colors"
+        >
           <ImageIcon size={24} />
         </button>
         
         <button 
           onClick={handleCapture}
           disabled={state.isProcessing}
+          aria-label={t('camera_capture') || 'Capture photo'}
+          title={t('camera_capture') || 'Capture photo'}
           className="w-20 h-20 bg-white rounded-full flex items-center justify-center p-1"
         >
           <div className="w-full h-full rounded-full border-4 border-emerald-500 bg-white shadow-lg transition-transform active:scale-95"></div>
         </button>
 
-        <button onClick={toggleCameraType} className="p-3 bg-gray-800 rounded-full text-white">
+        <button 
+          onClick={toggleCameraType} 
+          aria-label={t('camera_switch') || 'Switch camera'}
+          title={t('camera_switch') || 'Switch camera'}
+          className="p-3 bg-gray-800 rounded-full text-white hover:bg-gray-700 transition-colors"
+        >
           <RefreshCcw size={24} />
         </button>
       </div>

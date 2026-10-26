@@ -1,0 +1,45 @@
+name: Build MboaFit Android beta
+on:
+  push:
+    branches: [codex/mboafit-android-beta-2026-10-26]
+    paths-ignore: ['docs/**', 'README.md', 'PROJECT_STATE.md']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-beta-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck and regression tests
+        timeout-minutes: 5
+        run: |
+          npm run lint
+          npm test
+      - name: Build and sync packaged web app
+        run: npm run android:sync
+      - name: Assemble guest beta APK
+        working-directory: android
+        run: bash gradlew --no-daemon assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MboaFit-android-guest-beta
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
