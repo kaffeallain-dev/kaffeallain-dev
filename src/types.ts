@@ -34,6 +34,7 @@ export interface FoodItemTemplate {
   servingSizeText: string; // e.g. "1 apple (182g)", "100g"
   confidenceLevel?: 'High' | 'Medium' | 'Low';
   preparationNotes?: string;
+  nutritionSource?: string;
   popularity?: 'Very Common' | 'Common' | 'Occasional' | 'Rare';
   bestFor?: string[];
   concerns?: string[];

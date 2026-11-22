@@ -49,7 +49,7 @@ export default function SettingsView({
     retrySync
   } = useData();
 
-  const { user, signInWithGoogle, signOutUser, error: authError, clearError, isOnline } = useAuth();
+  const { user, signingIn, signInWithGoogle, signOutUser, error: authError, clearError, isOnline } = useAuth();
   const { t, lang, setLanguage } = useI18n();
 
   const [goal, setGoal] = useState(settings.dailyGoal.toString());
@@ -359,10 +359,12 @@ export default function SettingsView({
               <button
                 type="button"
                 onClick={signInWithGoogle}
+                disabled={signingIn}
+                aria-busy={signingIn}
                 className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2"
               >
                 <LogIn className="w-4 h-4" />
-                {t('sign_in_google')}
+                {t(signingIn ? 'signing_in_google' : 'sign_in_google')}
               </button>
             </div>
           )}

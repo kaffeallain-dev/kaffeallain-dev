@@ -38,6 +38,12 @@ Recovered 88 current source/config/test files directly from the existing AI Stud
 
 No deployment approval has been requested yet because native/device and production configuration gates are not complete.
 
+## 22 November 2026 follow-up
+
+- Added 12 sourced Cameroon recipe entries with a 100 g edible-weight baseline, a bilingual estimate notice, and accent-insensitive local-name and alias search. Legacy IDs and nutrient baselines were kept. See `docs/cameroon-food-catalogue.md`.
+- Prepared Android 0.1.1-beta and an opt-in Google Credential Manager bridge to the existing Firebase account. Native account use requires Android registration, the signing fingerprint, and the Web OAuth client ID. See `docs/android-google-sign-in.md`.
+- Device acceptance still requires testing guest logging offline and two-account sign-in, isolation, and consent with physical Android hardware.
+
 ## Hosted build evidence
 
 GitHub Actions run https://github.com/kaffeallain-dev/kaffeallain-dev/actions/runs/40323365266 succeeded for commit 81bfdea92a9a9a595c9b98819abc53eaf64e0954. Typecheck/regressions, web build, Capacitor sync and Android assembleDebug all passed on Linux. Artifact MboaFit-android-guest-beta (ID12649259645), 4,352,851 bytes, expires 2 November2026. Artifact ZIP SHA256:4b505fab01a8a7a71edd523da8eb203baf5c4e4f5c762a7487e7a690fd99b0e3. Draft PR:https://github.com/kaffeallain-dev/kaffeallain-dev/pull/3. Main/live deployment unchanged. Local browser preview could not connect to the local server in this environment; no new visual/mobile verification claimed.

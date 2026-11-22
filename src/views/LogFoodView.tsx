@@ -16,6 +16,7 @@ import {
 } from '../lib/nutritionScaling';
 import { useI18n } from '../lib/i18n';
 import { parseCustomFoodDraft, hasCatalogueGuidance } from '../lib/manualFood';
+import { foodSearchRank } from '../lib/foodSearch';
 
 export default function LogFoodView({ initialMeal, initialFood, initialRecord, onBack }: { initialMeal: MealCategory, initialFood?: FoodItemTemplate | null, initialRecord?: ConsumptionRecord | null, onBack: () => void }) {
   const { t } = useI18n();
@@ -211,25 +212,12 @@ export default function LogFoodView({ initialMeal, initialFood, initialRecord, o
 
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return [];
-    const query = searchQuery.toLowerCase();
-    const queryWords = query.split(/[\s,&+]+/).filter(w => w !== 'and' && w !== 'with' && w.length > 1);
-    
-    return allAvailableFoods.filter(f => {
-      if (!f || typeof f !== 'object' || typeof f.name !== 'string' || !f.name.trim()) return false;
-      const matchExactName = f.name.toLowerCase().includes(query);
-      const matchExactAlias = Array.isArray(f.aliases) && f.aliases.some(a => a && typeof a === 'string' && a.toLowerCase().includes(query));
-      if (matchExactName || matchExactAlias) return true;
-      
-      if (queryWords.length > 1) {
-         const nameAndAliases = [f.name, ...(Array.isArray(f.aliases) ? f.aliases : [])].filter(s => typeof s === 'string').map(s => s.toLowerCase());
-         const matchesAnyString = nameAndAliases.some(str => 
-             queryWords.every(qw => str.includes(qw))
-         );
-         if (matchesAnyString) return true;
-      }
-      return false;
-    }).sort((a, b) => {
-      if (queryWords.length > 1) {
+    const multiword = /[\s,&+]/.test(searchQuery.trim());
+    return allAvailableFoods.map(food => ({ food, rank: foodSearchRank(food, searchQuery) }))
+      .filter(match => match.rank > 0)
+      .sort(({ food: a, rank: aRank }, { food: b, rank: bRank }) => {
+      if (aRank !== bRank) return bRank - aRank;
+      if (multiword) {
          const aIsCombo = (a as any).isComposite || a.foodType === 'Combo';
          const bIsCombo = (b as any).isComposite || b.foodType === 'Combo';
          if (aIsCombo && !bIsCombo) return -1;
@@ -253,7 +241,7 @@ export default function LogFoodView({ initialMeal, initialFood, initialRecord, o
       if (catA !== catB) return catA - catB;
 
       return 0;
-    }).slice(0, 30);
+    }).slice(0, 30).map(match => match.food);
   }, [searchQuery, allAvailableFoods]);
 
   const handleLogFood = async () => {
@@ -438,7 +426,11 @@ export default function LogFoodView({ initialMeal, initialFood, initialRecord, o
               {isValidPortion ? `~${totalCals} kcal · ${scaledServingDesc}` : t('manual_valid_portion')}
             </p>
             
-            {(() => {
+            {selectedFood.nutritionSource ? (
+              <p className="mb-6 text-sm leading-relaxed text-gray-700" role="note">
+                {t('manual_recipe_estimate')} {selectedFood.nutritionSource}.
+              </p>
+            ) : (() => {
               const userGoal = settings.profile?.primaryGoal;
               const hasGuidance = !customFoods.some(food => food.id === selectedFood.id) &&
                 hasCatalogueGuidance(selectedFood, [...commonFoods, ...getCompositeMeals()]);

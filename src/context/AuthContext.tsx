@@ -1,17 +1,20 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { 
   User, 
   GoogleAuthProvider, 
   signInWithPopup, 
+  signInWithCredential,
   signOut, 
   onAuthStateChanged 
 } from 'firebase/auth';
 import { auth, testConnection } from '../lib/firebase';
 import { Capacitor } from '@capacitor/core';
+import { androidGoogleClientId, isAndroid, nativeGoogleAccount } from '../lib/nativeGoogleAccount';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  signingIn: boolean;
   error: string | null;
   signInWithGoogle: () => Promise<void>;
   signOutUser: () => Promise<void>;
@@ -31,6 +34,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [signingIn, setSigningIn] = useState(false);
+  const loginInFlight = useRef(false);
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
 
   useEffect(() => {
@@ -64,23 +69,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signInWithGoogle = async () => {
+    if (loginInFlight.current) return;
     setError(null);
-    if (Capacitor.isNativePlatform()) {
-      setError(localStorage.getItem('mboafit_lang') === 'fr'
-        ? 'La connexion Google Android n�est pas encore configur�e dans cette b�ta. La saisie manuelle reste disponible sans compte.'
+    const french = localStorage.getItem('mboafit_lang') === 'fr';
+    if (Capacitor.isNativePlatform() && (!isAndroid || !androidGoogleClientId)) {
+      setError(french
+        ? 'La connexion Google Android n’est pas encore configurée dans cette bêta. La saisie manuelle reste disponible sans compte.'
         : 'Android Google sign-in is not configured in this beta yet. Manual logging remains available without an account.');
       return;
     }
+    if (!navigator.onLine) {
+      setError(french ? 'Reconnectez-vous à Internet pour utiliser votre compte Google.' : 'Reconnect to the internet to use your Google account.');
+      return;
+    }
+    loginInFlight.current = true;
+    setSigningIn(true);
     try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
-      await signInWithPopup(auth, provider);
-    } catch (err: any) {
-      console.error('Google sign in error:', err);
-      // Don't show error if user simply closed the popup
-      if (err.code !== 'auth/popup-closed-by-user') {
-        setError(err.message || 'Failed to sign in with Google');
+      if (isAndroid) {
+        const { idToken } = await nativeGoogleAccount.signIn({ webClientId: androidGoogleClientId });
+        await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
+      } else {
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        await signInWithPopup(auth, provider);
       }
+    } catch (err) {
+      const code = (err as { code?: string } | null)?.code;
+      if (code === 'cancelled' || code === 'auth/popup-closed-by-user') return;
+      setError(french ? 'La connexion Google a échoué. Réessayez ou continuez sans compte.'
+        : 'Google sign-in failed. Try again or continue without an account.');
+    } finally {
+      loginInFlight.current = false;
+      setSigningIn(false);
     }
   };
 
@@ -88,6 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
     try {
       await signOut(auth);
+      if (isAndroid && androidGoogleClientId) await nativeGoogleAccount.clearSession();
     } catch (err: any) {
       console.error('Sign out error:', err);
       setError(err.message || 'Failed to sign out');
@@ -100,6 +121,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     <AuthContext.Provider value={{
       user,
       loading,
+      signingIn,
       error,
       signInWithGoogle,
       signOutUser,
