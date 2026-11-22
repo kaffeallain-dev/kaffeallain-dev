@@ -5869,7 +5869,1034 @@ export const commonFoods: FoodItemTemplate[] = [
     }
   },
   {
-    "id": "s…7364 tokens truncated…eparationNotes": "No sugar or milk.",
+    "id": "sn13",
+    "name": "Fresh Milk Candies",
+    "aliases": [
+      "bonbon lait"
+    ],
+    "category": "Snacks",
+    "calories": 120,
+    "protein": 2,
+    "carbs": 20,
+    "fat": 4,
+    "servingSizeText": "3 candies",
+    "confidenceLevel": "Medium",
+    "preparationNotes": "Condensed milk sweets.",
+    "popularity": "Common",
+    "fiber": 1,
+    "sugar": 2,
+    "sodium": 100,
+    "bestFor": [
+      "Weight Loss",
+      "Healthy Eating"
+    ],
+    "concerns": [],
+    "pairings": [
+      "Water",
+      "Fresh Fruit"
+    ],
+    "alternatives": [
+      "None"
+    ],
+    "frequency": "Daily",
+    "satietyScore": 50,
+    "healthScore": 80,
+    "foodType": "Individual",
+    "goalCompatibility": {
+      "Lose Weight": {
+        "level": "Moderate",
+        "reason": "Can be enjoyed in moderation."
+      },
+      "Maintain Weight": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      },
+      "Gain Weight": {
+        "level": "Moderate",
+        "reason": "Good for nutrients, but low in total energy."
+      },
+      "Build Muscle": {
+        "level": "Moderate",
+        "reason": "Can be enjoyed in moderation."
+      },
+      "Eat Healthier": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      }
+    }
+  },
+  {
+    "id": "sn14",
+    "name": "Baton de Manioc (Small)",
+    "aliases": [
+      "miondo"
+    ],
+    "category": "Snacks",
+    "calories": 120,
+    "protein": 1,
+    "carbs": 30,
+    "fat": 0,
+    "servingSizeText": "1 small stick",
+    "confidenceLevel": "High",
+    "preparationNotes": "As a snack.",
+    "popularity": "Occasional",
+    "fiber": 1,
+    "sugar": 2,
+    "sodium": 100,
+    "bestFor": [
+      "Weight Loss",
+      "Healthy Eating"
+    ],
+    "concerns": [],
+    "pairings": [
+      "Water",
+      "Fresh Fruit"
+    ],
+    "alternatives": [
+      "None"
+    ],
+    "frequency": "Daily",
+    "satietyScore": 50,
+    "healthScore": 80,
+    "foodType": "Individual",
+    "goalCompatibility": {
+      "Lose Weight": {
+        "level": "Moderate",
+        "reason": "Can be enjoyed in moderation."
+      },
+      "Maintain Weight": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      },
+      "Gain Weight": {
+        "level": "Moderate",
+        "reason": "Good for nutrients, but low in total energy."
+      },
+      "Build Muscle": {
+        "level": "Moderate",
+        "reason": "Provides necessary energy for workouts."
+      },
+      "Eat Healthier": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      }
+    }
+  },
+  {
+    "id": "sn15",
+    "name": "Ice Cream",
+    "aliases": [
+      "glace"
+    ],
+    "category": "Snacks",
+    "calories": 250,
+    "protein": 4,
+    "carbs": 30,
+    "fat": 12,
+    "servingSizeText": "1 scoop/cup (100g)",
+    "confidenceLevel": "Medium",
+    "preparationNotes": "Supermarket or street ice cream.",
+    "popularity": "Occasional",
+    "fiber": 1,
+    "sugar": 2,
+    "sodium": 100,
+    "bestFor": [
+      "Weight Loss",
+      "Healthy Eating"
+    ],
+    "concerns": [],
+    "pairings": [
+      "Water",
+      "Fresh Fruit"
+    ],
+    "alternatives": [
+      "None"
+    ],
+    "frequency": "Daily",
+    "satietyScore": 50,
+    "healthScore": 80,
+    "foodType": "Individual",
+    "goalCompatibility": {
+      "Lose Weight": {
+        "level": "Moderate",
+        "reason": "Can be enjoyed in moderation."
+      },
+      "Maintain Weight": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      },
+      "Gain Weight": {
+        "level": "Moderate",
+        "reason": "Good for nutrients, but low in total energy."
+      },
+      "Build Muscle": {
+        "level": "Moderate",
+        "reason": "Provides necessary energy for workouts."
+      },
+      "Eat Healthier": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      }
+    }
+  },
+  {
+    "id": "dr1",
+    "name": "Folere",
+    "aliases": [
+      "foléré",
+      "bissap",
+      "zobo",
+      "hibiscus juice"
+    ],
+    "category": "Drinks",
+    "calories": 120,
+    "protein": 0,
+    "carbs": 30,
+    "fat": 0,
+    "servingSizeText": "1 bottle/glass (330ml)",
+    "confidenceLevel": "Medium",
+    "preparationNotes": "Calories depend entirely on added sugar.",
+    "popularity": "Common",
+    "fiber": 1,
+    "sugar": 2,
+    "sodium": 100,
+    "bestFor": [
+      "Weight Loss",
+      "Healthy Eating"
+    ],
+    "concerns": [],
+    "pairings": [
+      "Water",
+      "Fresh Fruit"
+    ],
+    "alternatives": [
+      "None"
+    ],
+    "frequency": "Daily",
+    "satietyScore": 50,
+    "healthScore": 80,
+    "foodType": "Individual",
+    "goalCompatibility": {
+      "Lose Weight": {
+        "level": "Moderate",
+        "reason": "Can be enjoyed in moderation."
+      },
+      "Maintain Weight": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      },
+      "Gain Weight": {
+        "level": "Moderate",
+        "reason": "Good for nutrients, but low in total energy."
+      },
+      "Build Muscle": {
+        "level": "Moderate",
+        "reason": "Provides necessary energy for workouts."
+      },
+      "Eat Healthier": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      }
+    }
+  },
+  {
+    "id": "dr2",
+    "name": "Ginger Juice",
+    "aliases": [
+      "jus de gingembre",
+      "djindja"
+    ],
+    "category": "Drinks",
+    "calories": 150,
+    "protein": 0,
+    "carbs": 38,
+    "fat": 0,
+    "servingSizeText": "1 bottle (330ml)",
+    "confidenceLevel": "Medium",
+    "preparationNotes": "Sweetened ginger drink.",
+    "popularity": "Common",
+    "fiber": 1,
+    "sugar": 25,
+    "sodium": 100,
+    "bestFor": [
+      "Weight Gain",
+      "Pre-workout Energy"
+    ],
+    "concerns": [
+      "High added sugar",
+      "Low satiety"
+    ],
+    "pairings": [
+      "Grilled Fish",
+      "Boiled Eggs"
+    ],
+    "alternatives": [
+      "Water",
+      "Unsweetened Tea"
+    ],
+    "frequency": "Rarely",
+    "satietyScore": 30,
+    "healthScore": 50,
+    "foodType": "Individual",
+    "goalCompatibility": {
+      "Lose Weight": {
+        "level": "Poor",
+        "reason": "High in calories and may slow down weight loss."
+      },
+      "Maintain Weight": {
+        "level": "Moderate",
+        "reason": "Enjoy occasionally, but focus on whole foods."
+      },
+      "Gain Weight": {
+        "level": "Excellent",
+        "reason": "Helps you easily reach your calorie surplus."
+      },
+      "Build Muscle": {
+        "level": "Moderate",
+        "reason": "Provides necessary energy for workouts."
+      },
+      "Eat Healthier": {
+        "level": "Moderate",
+        "reason": "Enjoy occasionally, but focus on whole foods."
+      }
+    }
+  },
+  {
+    "id": "dr3",
+    "name": "Baobab Juice",
+    "aliases": [
+      "jus de bouye",
+      "baobab"
+    ],
+    "category": "Drinks",
+    "calories": 180,
+    "protein": 2,
+    "carbs": 42,
+    "fat": 1,
+    "servingSizeText": "1 bottle (330ml)",
+    "confidenceLevel": "Medium",
+    "preparationNotes": "Rich and sweet.",
+    "popularity": "Occasional",
+    "fiber": 1,
+    "sugar": 25,
+    "sodium": 100,
+    "bestFor": [
+      "Weight Gain",
+      "Pre-workout Energy"
+    ],
+    "concerns": [
+      "High added sugar",
+      "Low satiety"
+    ],
+    "pairings": [
+      "Grilled Fish",
+      "Boiled Eggs"
+    ],
+    "alternatives": [
+      "Water",
+      "Unsweetened Tea"
+    ],
+    "frequency": "Rarely",
+    "satietyScore": 30,
+    "healthScore": 50,
+    "foodType": "Individual",
+    "goalCompatibility": {
+      "Lose Weight": {
+        "level": "Poor",
+        "reason": "High in calories and may slow down weight loss."
+      },
+      "Maintain Weight": {
+        "level": "Moderate",
+        "reason": "Enjoy occasionally, but focus on whole foods."
+      },
+      "Gain Weight": {
+        "level": "Excellent",
+        "reason": "Helps you easily reach your calorie surplus."
+      },
+      "Build Muscle": {
+        "level": "Moderate",
+        "reason": "Provides necessary energy for workouts."
+      },
+      "Eat Healthier": {
+        "level": "Moderate",
+        "reason": "Enjoy occasionally, but focus on whole foods."
+      }
+    }
+  },
+  {
+    "id": "dr4",
+    "name": "Soda / Soft Drink",
+    "aliases": [
+      "coca cola",
+      "fanta",
+      "sprite",
+      "top",
+      "d'jino"
+    ],
+    "category": "Drinks",
+    "calories": 140,
+    "protein": 0,
+    "carbs": 35,
+    "fat": 0,
+    "servingSizeText": "1 bottle/can (330ml)",
+    "confidenceLevel": "High",
+    "preparationNotes": "Standard sugary soda.",
+    "popularity": "Common",
+    "fiber": 1,
+    "sugar": 25,
+    "sodium": 100,
+    "bestFor": [
+      "Weight Gain",
+      "Pre-workout Energy"
+    ],
+    "concerns": [
+      "High added sugar",
+      "Low satiety"
+    ],
+    "pairings": [
+      "Grilled Fish",
+      "Boiled Eggs"
+    ],
+    "alternatives": [
+      "Water",
+      "Unsweetened Tea"
+    ],
+    "frequency": "Rarely",
+    "satietyScore": 30,
+    "healthScore": 50,
+    "foodType": "Individual",
+    "goalCompatibility": {
+      "Lose Weight": {
+        "level": "Poor",
+        "reason": "High in calories and may slow down weight loss."
+      },
+      "Maintain Weight": {
+        "level": "Moderate",
+        "reason": "Enjoy occasionally, but focus on whole foods."
+      },
+      "Gain Weight": {
+        "level": "Excellent",
+        "reason": "Helps you easily reach your calorie surplus."
+      },
+      "Build Muscle": {
+        "level": "Moderate",
+        "reason": "Provides necessary energy for workouts."
+      },
+      "Eat Healthier": {
+        "level": "Moderate",
+        "reason": "Enjoy occasionally, but focus on whole foods."
+      }
+    }
+  },
+  {
+    "id": "dr5",
+    "name": "Malt Drink",
+    "aliases": [
+      "malta",
+      "maltina",
+      "malta guinness"
+    ],
+    "category": "Drinks",
+    "calories": 180,
+    "protein": 1,
+    "carbs": 40,
+    "fat": 0,
+    "servingSizeText": "1 bottle (330ml)",
+    "confidenceLevel": "High",
+    "preparationNotes": "Non-alcoholic malt beverage.",
+    "popularity": "Common",
+    "fiber": 1,
+    "sugar": 2,
+    "sodium": 100,
+    "bestFor": [
+      "Weight Gain",
+      "Pre-workout Energy",
+      "Weight Loss",
+      "Healthy Eating"
+    ],
+    "concerns": [],
+    "pairings": [
+      "Grilled Fish",
+      "Boiled Eggs"
+    ],
+    "alternatives": [
+      "None"
+    ],
+    "frequency": "Daily",
+    "satietyScore": 50,
+    "healthScore": 80,
+    "foodType": "Individual",
+    "goalCompatibility": {
+      "Lose Weight": {
+        "level": "Moderate",
+        "reason": "Can be enjoyed in moderation."
+      },
+      "Maintain Weight": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      },
+      "Gain Weight": {
+        "level": "Excellent",
+        "reason": "Helps you easily reach your calorie surplus."
+      },
+      "Build Muscle": {
+        "level": "Moderate",
+        "reason": "Provides necessary energy for workouts."
+      },
+      "Eat Healthier": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      }
+    }
+  },
+  {
+    "id": "dr6",
+    "name": "Beer",
+    "aliases": [
+      "bière",
+      "33 export",
+      "mutzig",
+      "kadji"
+    ],
+    "category": "Drinks",
+    "calories": 220,
+    "protein": 2,
+    "carbs": 15,
+    "fat": 0,
+    "servingSizeText": "1 large bottle (650ml)",
+    "confidenceLevel": "High",
+    "preparationNotes": "Standard Cameroonian large beer format.",
+    "popularity": "Common",
+    "fiber": 1,
+    "sugar": 2,
+    "sodium": 100,
+    "bestFor": [
+      "Weight Loss",
+      "Healthy Eating"
+    ],
+    "concerns": [],
+    "pairings": [
+      "Water",
+      "Fresh Fruit"
+    ],
+    "alternatives": [
+      "None"
+    ],
+    "frequency": "Daily",
+    "satietyScore": 50,
+    "healthScore": 80,
+    "foodType": "Individual",
+    "goalCompatibility": {
+      "Lose Weight": {
+        "level": "Moderate",
+        "reason": "Can be enjoyed in moderation."
+      },
+      "Maintain Weight": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      },
+      "Gain Weight": {
+        "level": "Moderate",
+        "reason": "Good for nutrients, but low in total energy."
+      },
+      "Build Muscle": {
+        "level": "Moderate",
+        "reason": "Can be enjoyed in moderation."
+      },
+      "Eat Healthier": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      }
+    }
+  },
+  {
+    "id": "dr7",
+    "name": "Fresh Pineapple Juice",
+    "aliases": [
+      "jus d'ananas"
+    ],
+    "category": "Drinks",
+    "calories": 130,
+    "protein": 1,
+    "carbs": 32,
+    "fat": 0,
+    "servingSizeText": "1 glass (250ml)",
+    "confidenceLevel": "High",
+    "preparationNotes": "No added sugar.",
+    "popularity": "Occasional",
+    "fiber": 1,
+    "sugar": 25,
+    "sodium": 100,
+    "bestFor": [
+      "Weight Gain",
+      "Pre-workout Energy"
+    ],
+    "concerns": [
+      "High added sugar",
+      "Low satiety"
+    ],
+    "pairings": [
+      "Grilled Fish",
+      "Boiled Eggs"
+    ],
+    "alternatives": [
+      "Water",
+      "Unsweetened Tea"
+    ],
+    "frequency": "Rarely",
+    "satietyScore": 30,
+    "healthScore": 50,
+    "foodType": "Individual",
+    "goalCompatibility": {
+      "Lose Weight": {
+        "level": "Poor",
+        "reason": "High in calories and may slow down weight loss."
+      },
+      "Maintain Weight": {
+        "level": "Moderate",
+        "reason": "Enjoy occasionally, but focus on whole foods."
+      },
+      "Gain Weight": {
+        "level": "Excellent",
+        "reason": "Helps you easily reach your calorie surplus."
+      },
+      "Build Muscle": {
+        "level": "Moderate",
+        "reason": "Provides necessary energy for workouts."
+      },
+      "Eat Healthier": {
+        "level": "Moderate",
+        "reason": "Enjoy occasionally, but focus on whole foods."
+      }
+    }
+  },
+  {
+    "id": "dr8",
+    "name": "Soya Milk",
+    "aliases": [
+      "lait de soja",
+      "soy milk"
+    ],
+    "category": "Drinks",
+    "calories": 100,
+    "protein": 7,
+    "carbs": 12,
+    "fat": 4,
+    "servingSizeText": "1 glass (250ml)",
+    "confidenceLevel": "Medium",
+    "preparationNotes": "Home-made or street bought, slightly sweetened.",
+    "popularity": "Occasional",
+    "fiber": 1,
+    "sugar": 2,
+    "sodium": 100,
+    "bestFor": [
+      "Weight Loss",
+      "Healthy Eating"
+    ],
+    "concerns": [],
+    "pairings": [
+      "Water",
+      "Fresh Fruit"
+    ],
+    "alternatives": [
+      "None"
+    ],
+    "frequency": "Daily",
+    "satietyScore": 50,
+    "healthScore": 80,
+    "foodType": "Individual",
+    "goalCompatibility": {
+      "Lose Weight": {
+        "level": "Moderate",
+        "reason": "Can be enjoyed in moderation."
+      },
+      "Maintain Weight": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      },
+      "Gain Weight": {
+        "level": "Moderate",
+        "reason": "Good for nutrients, but low in total energy."
+      },
+      "Build Muscle": {
+        "level": "Moderate",
+        "reason": "Can be enjoyed in moderation."
+      },
+      "Eat Healthier": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      }
+    }
+  },
+  {
+    "id": "dr9",
+    "name": "Palm Wine",
+    "aliases": [
+      "matango",
+      "vin de palme"
+    ],
+    "category": "Drinks",
+    "calories": 150,
+    "protein": 1,
+    "carbs": 20,
+    "fat": 0,
+    "servingSizeText": "1 glass (300ml)",
+    "confidenceLevel": "Low",
+    "preparationNotes": "Naturally fermented.",
+    "popularity": "Occasional",
+    "fiber": 1,
+    "sugar": 2,
+    "sodium": 100,
+    "bestFor": [
+      "Weight Loss",
+      "Healthy Eating"
+    ],
+    "concerns": [],
+    "pairings": [
+      "Water",
+      "Fresh Fruit"
+    ],
+    "alternatives": [
+      "None"
+    ],
+    "frequency": "Daily",
+    "satietyScore": 50,
+    "healthScore": 80,
+    "foodType": "Individual",
+    "goalCompatibility": {
+      "Lose Weight": {
+        "level": "Moderate",
+        "reason": "Can be enjoyed in moderation."
+      },
+      "Maintain Weight": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      },
+      "Gain Weight": {
+        "level": "Moderate",
+        "reason": "Good for nutrients, but low in total energy."
+      },
+      "Build Muscle": {
+        "level": "Moderate",
+        "reason": "Can be enjoyed in moderation."
+      },
+      "Eat Healthier": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      }
+    }
+  },
+  {
+    "id": "dr10",
+    "name": "Lemonade",
+    "aliases": [
+      "jus de citron"
+    ],
+    "category": "Drinks",
+    "calories": 110,
+    "protein": 0,
+    "carbs": 28,
+    "fat": 0,
+    "servingSizeText": "1 glass (250ml)",
+    "confidenceLevel": "Medium",
+    "preparationNotes": "Water, lemon, sugar.",
+    "popularity": "Occasional",
+    "fiber": 1,
+    "sugar": 2,
+    "sodium": 100,
+    "bestFor": [
+      "Weight Loss",
+      "Healthy Eating"
+    ],
+    "concerns": [],
+    "pairings": [
+      "Water",
+      "Fresh Fruit"
+    ],
+    "alternatives": [
+      "None"
+    ],
+    "frequency": "Daily",
+    "satietyScore": 50,
+    "healthScore": 80,
+    "foodType": "Individual",
+    "goalCompatibility": {
+      "Lose Weight": {
+        "level": "Moderate",
+        "reason": "Can be enjoyed in moderation."
+      },
+      "Maintain Weight": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      },
+      "Gain Weight": {
+        "level": "Moderate",
+        "reason": "Good for nutrients, but low in total energy."
+      },
+      "Build Muscle": {
+        "level": "Moderate",
+        "reason": "Provides necessary energy for workouts."
+      },
+      "Eat Healthier": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      }
+    }
+  },
+  {
+    "id": "dr11",
+    "name": "Kossam",
+    "aliases": [
+      "lait caillé",
+      "yogurt",
+      "yoghurt"
+    ],
+    "category": "Drinks",
+    "calories": 180,
+    "protein": 8,
+    "carbs": 25,
+    "fat": 6,
+    "servingSizeText": "1 cup (250ml)",
+    "confidenceLevel": "Medium",
+    "preparationNotes": "Local sweetened fermented milk.",
+    "popularity": "Common",
+    "fiber": 1,
+    "sugar": 2,
+    "sodium": 100,
+    "bestFor": [
+      "Weight Loss",
+      "Healthy Eating"
+    ],
+    "concerns": [],
+    "pairings": [
+      "Water",
+      "Fresh Fruit"
+    ],
+    "alternatives": [
+      "None"
+    ],
+    "frequency": "Daily",
+    "satietyScore": 50,
+    "healthScore": 80,
+    "foodType": "Individual",
+    "goalCompatibility": {
+      "Lose Weight": {
+        "level": "Moderate",
+        "reason": "Can be enjoyed in moderation."
+      },
+      "Maintain Weight": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      },
+      "Gain Weight": {
+        "level": "Moderate",
+        "reason": "Good for nutrients, but low in total energy."
+      },
+      "Build Muscle": {
+        "level": "Moderate",
+        "reason": "Provides necessary energy for workouts."
+      },
+      "Eat Healthier": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      }
+    }
+  },
+  {
+    "id": "dr12",
+    "name": "Water",
+    "aliases": [
+      "tangui",
+      "supermont",
+      "eau"
+    ],
+    "category": "Drinks",
+    "calories": 0,
+    "protein": 0,
+    "carbs": 0,
+    "fat": 0,
+    "servingSizeText": "1 bottle (1.5L)",
+    "confidenceLevel": "High",
+    "preparationNotes": "Zero calories.",
+    "popularity": "Common",
+    "fiber": 1,
+    "sugar": 2,
+    "sodium": 100,
+    "bestFor": [
+      "Weight Loss",
+      "Healthy Eating"
+    ],
+    "concerns": [],
+    "pairings": [
+      "Water",
+      "Fresh Fruit"
+    ],
+    "alternatives": [
+      "None"
+    ],
+    "frequency": "Daily",
+    "satietyScore": 50,
+    "healthScore": 80,
+    "foodType": "Individual",
+    "goalCompatibility": {
+      "Lose Weight": {
+        "level": "Moderate",
+        "reason": "Can be enjoyed in moderation."
+      },
+      "Maintain Weight": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      },
+      "Gain Weight": {
+        "level": "Moderate",
+        "reason": "Good for nutrients, but low in total energy."
+      },
+      "Build Muscle": {
+        "level": "Moderate",
+        "reason": "Can be enjoyed in moderation."
+      },
+      "Eat Healthier": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      }
+    }
+  },
+  {
+    "id": "dr13",
+    "name": "Energy Drink",
+    "aliases": [
+      "xxl",
+      "red bull"
+    ],
+    "category": "Drinks",
+    "calories": 160,
+    "protein": 0,
+    "carbs": 40,
+    "fat": 0,
+    "servingSizeText": "1 can (330ml)",
+    "confidenceLevel": "High",
+    "preparationNotes": "High sugar and caffeine.",
+    "popularity": "Occasional",
+    "fiber": 1,
+    "sugar": 2,
+    "sodium": 100,
+    "bestFor": [
+      "Weight Gain",
+      "Pre-workout Energy",
+      "Weight Loss",
+      "Healthy Eating"
+    ],
+    "concerns": [],
+    "pairings": [
+      "Grilled Fish",
+      "Boiled Eggs"
+    ],
+    "alternatives": [
+      "None"
+    ],
+    "frequency": "Daily",
+    "satietyScore": 50,
+    "healthScore": 80,
+    "foodType": "Individual",
+    "goalCompatibility": {
+      "Lose Weight": {
+        "level": "Moderate",
+        "reason": "Can be enjoyed in moderation."
+      },
+      "Maintain Weight": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      },
+      "Gain Weight": {
+        "level": "Excellent",
+        "reason": "Helps you easily reach your calorie surplus."
+      },
+      "Build Muscle": {
+        "level": "Moderate",
+        "reason": "Provides necessary energy for workouts."
+      },
+      "Eat Healthier": {
+        "level": "Excellent",
+        "reason": "Rich in nutrients and supports overall health."
+      }
+    }
+  },
+  {
+    "id": "dr14",
+    "name": "Boxed Fruit Juice",
+    "aliases": [
+      "ceres",
+      "pressea"
+    ],
+    "category": "Drinks",
+    "calories": 120,
+    "protein": 0,
+    "carbs": 30,
+    "fat": 0,
+    "servingSizeText": "1 glass (250ml)",
+    "confidenceLevel": "High",
+    "preparationNotes": "Commercial fruit juice.",
+    "popularity": "Common",
+    "fiber": 1,
+    "sugar": 25,
+    "sodium": 100,
+    "bestFor": [
+      "General Energy"
+    ],
+    "concerns": [
+      "High added sugar",
+      "Low satiety"
+    ],
+    "pairings": [
+      "Water",
+      "Fresh Fruit"
+    ],
+    "alternatives": [
+      "Water",
+      "Unsweetened Tea"
+    ],
+    "frequency": "Rarely",
+    "satietyScore": 30,
+    "healthScore": 50,
+    "foodType": "Individual",
+    "goalCompatibility": {
+      "Lose Weight": {
+        "level": "Poor",
+        "reason": "High in calories and may slow down weight loss."
+      },
+      "Maintain Weight": {
+        "level": "Moderate",
+        "reason": "Enjoy occasionally, but focus on whole foods."
+      },
+      "Gain Weight": {
+        "level": "Moderate",
+        "reason": "Good for nutrients, but low in total energy."
+      },
+      "Build Muscle": {
+        "level": "Moderate",
+        "reason": "Provides necessary energy for workouts."
+      },
+      "Eat Healthier": {
+        "level": "Moderate",
+        "reason": "Enjoy occasionally, but focus on whole foods."
+      }
+    }
+  },
+  {
+    "id": "dr15",
+    "name": "Black Coffee",
+    "aliases": [
+      "café",
+      "nescafe"
+    ],
+    "category": "Drinks",
+    "calories": 5,
+    "protein": 0,
+    "carbs": 1,
+    "fat": 0,
+    "servingSizeText": "1 cup",
+    "confidenceLevel": "High",
+    "preparationNotes": "No sugar or milk.",
     "popularity": "Occasional",
     "fiber": 1,
     "sugar": 2,
