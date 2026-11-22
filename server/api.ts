@@ -46,7 +46,11 @@ export function createApi(deps: ApiDependencies, config: ApiConfig) {
     if (req.method === 'OPTIONS') return res.status(origin && config.allowedOrigins.includes(origin) ? 204 : 403).end();
     next();
   });
-  api.get('/capabilities', (_req, res) => res.json({ scansEnabled: config.scansEnabled, deletionEnabled: config.deletionEnabled }));
+  api.get('/capabilities', (_req, res) => res.json({
+    scansEnabled: config.scansEnabled,
+    deletionEnabled: config.deletionEnabled,
+    scanDailyLimit: config.scansEnabled ? config.dailyLimit : null,
+  }));
   api.use(async (req, res, next) => {
     const match = /^Bearer ([^\s]+)$/.exec(req.headers.authorization || '');
     if (!match) return res.status(401).json({ code: 'sign_in_required' });
@@ -78,7 +82,11 @@ export function createApi(deps: ApiDependencies, config: ApiConfig) {
     } catch (error) {
       if (claimed && typeof key === 'string') await deps.finish(uid, key, null, true).catch(() => {});
       const known = error instanceof ApiError ? error : new ApiError(502, 'scan_failed');
-      if (known.status === 429) res.setHeader('Retry-After', '3600');
+      if (known.status === 429) {
+        const now = new Date();
+        const reset = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+        res.setHeader('Retry-After', String(Math.max(1, Math.ceil((reset - now.getTime()) / 1000))));
+      }
       return res.status(known.status).json({ code: known.code });
     }
   });

@@ -1,147 +1,68 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { CameraEngine, CameraEngineOptions, ProcessedImageResult } from './CameraEngine';
-
-export interface CameraEngineState {
-  hasPermission: boolean | null;
-  status: 'INITIAL' | 'UNAVAILABLE' | 'DENIED' | 'GRANTED';
-  isProcessing: boolean;
-  facingMode: 'user' | 'environment';
-  stream: MediaStream | null;
-}
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { CameraSession } from './CameraEngine';
 
 export function useCameraEngine() {
   const videoRef = useRef<HTMLVideoElement>(null);
-  
-  const [state, setState] = useState<CameraEngineState>({
-    hasPermission: null,
-    status: 'INITIAL',
-    isProcessing: false,
-    facingMode: 'environment',
-    stream: null
-  });
-
-  const isMountedRef = useRef<boolean>(true);
-  const activeStreamRef = useRef<MediaStream | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const sessionRef = useRef<CameraSession | null>(null);
+  const facingMode = useRef<'environment' | 'user'>('environment');
+  const [status, setStatus] = useState<CameraSession['status']>('INITIAL');
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [canSwitch, setCanSwitch] = useState(false);
 
   useEffect(() => {
-    isMountedRef.current = true;
+    const session = new CameraSession({ onStatusChange: setStatus, onStream: setStream });
+    sessionRef.current = session;
+    const stopWhenHidden = () => {
+      if (document.hidden) session.stop();
+    };
+    document.addEventListener('visibilitychange', stopWhenHidden);
+    window.addEventListener('pagehide', stop);
+    function stop() { session.stop(); }
     return () => {
-      isMountedRef.current = false;
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      if (activeStreamRef.current) {
-        CameraEngine.stopTracks(activeStreamRef.current);
-        activeStreamRef.current = null;
-      }
+      document.removeEventListener('visibilitychange', stopWhenHidden);
+      window.removeEventListener('pagehide', stop);
+      session.unmount();
+      sessionRef.current = null;
     };
   }, []);
 
-  const requestPermissions = useCallback(async () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    const ac = new AbortController();
-    abortControllerRef.current = ac;
-
-    try {
-      const stream = await CameraEngine.requestStream(state.facingMode, { signal: ac.signal });
-
-      // If unmounted or cancelled while getUserMedia was resolving (late stream arrival):
-      if (!isMountedRef.current || ac.signal.aborted) {
-        CameraEngine.stopTracks(stream);
-        return;
-      }
-
-      if (activeStreamRef.current && activeStreamRef.current !== stream) {
-        CameraEngine.stopTracks(activeStreamRef.current);
-      }
-      activeStreamRef.current = stream;
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      setState(prev => ({ ...prev, hasPermission: true, status: 'GRANTED', stream }));
-    } catch (err: any) {
-      if (ac.signal.aborted || !isMountedRef.current) {
-        return;
-      }
-      console.warn("Camera permission denied or not available", err);
-      const mappedStatus = CameraEngine.mapAcquisitionError(err);
-      setState(prev => ({ ...prev, hasPermission: false, status: mappedStatus }));
-    }
-  }, [state.facingMode]);
-
   useEffect(() => {
-    if (state.stream && videoRef.current && videoRef.current.srcObject !== state.stream) {
-      videoRef.current.srcObject = state.stream;
+    const video = videoRef.current;
+    if (!video) return;
+    video.srcObject = stream;
+    let active = true;
+    if (stream) {
+      void navigator.mediaDevices.enumerateDevices().then(devices => {
+        if (active) setCanSwitch(devices.filter(device => device.kind === 'videoinput').length > 1);
+      }).catch(() => { if (active) setCanSwitch(false); });
     }
-  }, [state.stream, state.status]);
-
-  useEffect(() => {
     return () => {
-      if (state.stream) {
-        CameraEngine.stopTracks(state.stream);
-      }
+      active = false;
+      video.srcObject = null;
     };
-  }, [state.stream]);
+  }, [stream]);
 
-  const toggleCameraType = useCallback(() => {
-    if (activeStreamRef.current) {
-      CameraEngine.stopTracks(activeStreamRef.current);
-      activeStreamRef.current = null;
-    }
-    setState(prev => ({
-      ...prev,
-      stream: null,
-      facingMode: prev.facingMode === 'user' ? 'environment' : 'user'
-    }));
-    setTimeout(() => {
-      if (isMountedRef.current) {
-        requestPermissions();
-      }
-    }, 100);
-  }, [requestPermissions]);
+  const start = useCallback(() => {
+    void sessionRef.current?.start(facingMode.current).catch(() => {
+      // The session publishes the permission or device error status.
+    });
+  }, []);
 
-  const takePicture = useCallback(async (options?: CameraEngineOptions): Promise<ProcessedImageResult | null> => {
-    if (state.isProcessing || !videoRef.current) return null;
-    
+  const switchLens = async () => {
+    const session = sessionRef.current;
+    if (!session?.stream || !canSwitch) return;
+    const previous = facingMode.current;
+    const next = previous === 'environment' ? 'user' : 'environment';
     try {
-      setState(prev => ({ ...prev, isProcessing: true }));
-      const result = await CameraEngine.captureFromVideo(videoRef.current, options);
-      return result;
-    } catch (error) {
-      console.error("[useCameraEngine] Error taking picture:", error);
-      throw error;
-    } finally {
-      setState(prev => ({ ...prev, isProcessing: false }));
+      if (await session.start(next)) facingMode.current = next;
+    } catch {
+      // Some devices list auxiliary cameras that a WebView cannot open.
+      setCanSwitch(false);
+      if (sessionRef.current === session) await session.start(previous).catch(() => {});
     }
-  }, [state.isProcessing]);
-
-  const pickFromGallery = useCallback(async (options?: CameraEngineOptions): Promise<ProcessedImageResult | null> => {
-    if (state.isProcessing) return null;
-    
-    try {
-      setState(prev => ({ ...prev, isProcessing: true }));
-      const result = await CameraEngine.pickFromGallery(options);
-      return result;
-    } catch (error) {
-      console.error("[useCameraEngine] Error picking from gallery:", error);
-      throw error;
-    } finally {
-      setState(prev => ({ ...prev, isProcessing: false }));
-    }
-  }, [state.isProcessing]);
-
-  return {
-    videoRef,
-    state,
-    requestPermissions,
-    toggleCameraType,
-    takePicture,
-    pickFromGallery
   };
+
+  return { videoRef, status, stream, start, canSwitch, switchLens, stop: () => sessionRef.current?.stop() };
 }
 
 export { CameraSession } from './CameraEngine';

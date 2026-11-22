@@ -33,13 +33,16 @@ jobs:
           npm run lint
           npm test
       - name: Build and sync packaged web app
+        env:
+          VITE_API_BASE_URL: ${{ vars.MBOAFIT_BETA_API_BASE_URL }}
+          VITE_ANDROID_GOOGLE_WEB_CLIENT_ID: ${{ vars.MBOAFIT_BETA_GOOGLE_WEB_CLIENT_ID }}
         run: npm run android:sync
-      - name: Assemble guest beta APK
+      - name: Assemble beta APK
         working-directory: android
         run: bash gradlew --no-daemon assembleDebug
       - uses: actions/upload-artifact@v4
         with:
-          name: MboaFit-android-guest-beta
+          name: MboaFit-android-beta
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7

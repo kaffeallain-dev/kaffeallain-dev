@@ -16,6 +16,71 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { CameraEngine, CameraSession } from '../src/features/vision/presentation/acquisition/CameraEngine';
+import { getScanPortion } from '../src/lib/scanPortion';
+import type { RecognizedItemDetails } from '../src/features/vision/domain/pipeline/FoodRecognitionPipelineTypes';
+
+test('switching lenses stops the previous stream and requests video only', async () => {
+  const session = new CameraSession();
+  const rear = createMockStream();
+  const front = createMockStream();
+  const requested: MediaStreamConstraints[] = [];
+  setMockNavigator({ mediaDevices: { getUserMedia: async (constraints: MediaStreamConstraints) => {
+    requested.push(constraints);
+    if (requested.length === 1) return rear;
+    assert.ok(rear.mockTracks.every(track => track.isStopped));
+    return front;
+  } } });
+  try {
+    await session.start('environment');
+    assert.equal(await session.start('user'), front);
+    assert.deepEqual(requested.map(options => [(options.video as MediaTrackConstraints).facingMode, options.audio]), [
+      [{ ideal: 'environment' }, false],
+      [{ ideal: 'user' }, false],
+    ]);
+    session.stop();
+    assert.ok(front.mockTracks.every(track => track.isStopped));
+  } finally {
+    session.unmount();
+    restoreNavigator();
+  }
+});
+
+test('stopping during a pending permission request releases the late stream without reopening', async () => {
+  const session = new CameraSession();
+  const stream = createMockStream();
+  let resolveStream!: (value: MediaStream) => void;
+  setMockNavigator({ mediaDevices: { getUserMedia: () => new Promise(resolve => { resolveStream = resolve; }) } });
+  try {
+    const pending = session.start();
+    assert.equal(session.status, 'STARTING');
+    session.stop();
+    resolveStream(stream);
+    assert.equal(await pending, null);
+    assert.equal(session.status, 'INITIAL');
+    assert.ok(stream.mockTracks.every(track => track.isStopped));
+  } finally {
+    session.unmount();
+    restoreNavigator();
+  }
+});
+
+test('unsupported gallery images and unavailable frames reject before processing', async () => {
+  await assert.rejects(CameraEngine.processFile({ type: 'image/gif', size: 13 } as File), /JPEG/);
+  await assert.rejects(CameraEngine.processFile({ type: 'image/jpeg', size: 13 * 1024 * 1024 } as File), /12 MB/);
+  await assert.rejects(CameraEngine.captureFromVideo({ readyState: 1 } as HTMLVideoElement), /Photo not ready/);
+});
+
+test('scan nutrients require an entered amount and a catalog gram baseline', () => {
+  const food = { id: 'ekomba', name: 'Ekomba', calories: 180.8, protein: 5, carbs: 22.2, fat: 8, servingSizeText: '100 g' };
+  const item = { food, detectionId: 'cloud-0', detectedLabel: 'Ekomba' } as RecognizedItemDetails;
+  assert.equal(getScanPortion(item), null);
+  for (const grams of [0, -1, NaN, 1.2, 5001]) assert.equal(getScanPortion({ ...item, grams }), null);
+  assert.equal(getScanPortion({ ...item, food: { ...food, servingSizeText: '1 bowl' }, grams: 200 }), null);
+  const portion = getScanPortion({ ...item, grams: 200 });
+  assert.equal(portion?.record.calories, 362);
+  assert.equal(portion?.record.carbs, 44.4);
+  assert.equal(portion?.record.servings, 2);
+});
 
 const originalNavigatorDesc = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
 

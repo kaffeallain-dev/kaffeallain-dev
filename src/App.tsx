@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { DataProvider, useData } from './context/DataContext';
 import DashboardView from './views/DashboardView';
 import LogFoodView from './views/LogFoodView';
@@ -7,7 +7,7 @@ import OnboardingView from './views/OnboardingView';
 import SettingsView from './views/SettingsView';
 import AnalyticsView from './views/AnalyticsView';
 import { PrivacyPanel } from './components/PrivacyPanel';
-import { Capacitor } from '@capacitor/core';
+import { apiUrl } from './lib/apiClient';
 
 import { CameraScreen } from './components/CameraScreen';
 import { ScanningScreen } from './components/ScanningScreen';
@@ -18,9 +18,10 @@ import { ProcessedImageResult } from './features/vision/presentation/acquisition
 import { FoodRecognitionResult } from './features/vision/domain/pipeline/FoodRecognitionPipelineTypes';
 import { MealCategory, FoodItemTemplate, ConsumptionRecord } from './types';
 import { Home, PieChart, Camera, User, Utensils, AlertCircle, CloudUpload } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import { parseServingGrams } from './lib/nutritionScaling';
+import { motion, AnimatePresence, MotionConfig } from 'motion/react';
+import { getScanPortion } from './lib/scanPortion';
 import { useI18n } from './lib/i18n';
+import { commonFoods } from './data/foodDatabase';
 
 type Tab = 'Home' | 'Meals' | 'Analytics' | 'Settings';
 type ViewState = 'ONBOARDING' | 'DASHBOARD' | 'CAMERA' | 'SCANNING' | 'RESULTS' | 'SUMMARY';
@@ -34,13 +35,13 @@ function MainApp() {
     showImportPrompt, 
     importLocalData, 
     dismissImportPrompt,
-    selectedDateConsumptions,
     allConsumptions,
     syncStatus,
     syncError,
     retrySync
   } = useData();
   const { t } = useI18n();
+  const { user, isOnline } = useAuth();
 
   const [currentTab, setCurrentTab] = useState<Tab>('Home');
   const [viewState, setViewState] = useState<ViewState>('DASHBOARD');
@@ -52,6 +53,62 @@ function MainApp() {
   const [recognitionResult, setRecognitionResult] = useState<FoodRecognitionResult | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
 
+  const scanController = useRef<AbortController | null>(null);
+  const scanOwner = useRef(user?.uid);
+  scanOwner.current = user?.uid;
+  const saveSession = useRef<{ id: string; timestamp: number; owner: string; saving: boolean } | null>(null);
+  const [scanSaving, setScanSaving] = useState(false);
+  const [scanSaveError, setScanSaveError] = useState(false);
+  const [scanCapability, setScanCapability] = useState<{ enabled: boolean; limit?: number } | null>(null);
+
+  useEffect(() => {
+    if (viewState !== 'CAMERA' || !user || !isOnline) return;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6_000);
+    let current = true;
+    setScanCapability(null);
+    async function loadCapability() {
+      try {
+        const response = await fetch(apiUrl('capabilities'), { signal: controller.signal, cache: 'no-store' });
+        if (!response.ok) throw new Error('Camera service unavailable');
+        const data = await response.json();
+        if (current) setScanCapability({
+          enabled: data.scansEnabled === true,
+          limit: Number.isInteger(data.scanDailyLimit) && data.scanDailyLimit > 0 ? data.scanDailyLimit : undefined,
+        });
+      } catch {
+        if (current) setScanCapability({ enabled: false });
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+    void loadCapability();
+    return () => {
+      current = false;
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [viewState, user?.uid, isOnline]);
+
+  const cancelScan = () => {
+    scanController.current?.abort();
+    scanController.current = null;
+    setCapturedImage(null);
+    setViewState('CAMERA');
+  };
+
+  useEffect(() => {
+    if (scanController.current) cancelScan();
+    if (saveSession.current && saveSession.current.owner !== user?.uid) {
+      saveSession.current = null;
+      setCapturedImage(null);
+      setRecognitionResult(null);
+      setViewState('DASHBOARD');
+    }
+    return () => { scanController.current?.abort(); };
+  }, [user?.uid]);
+
+  const scanAvailable = user && isOnline ? scanCapability?.enabled ?? null : false;
   const isDeliberateReopenRef = useRef(false);
 
   // Reliable onboarding check: casual/skipping users, goal-setters, returning users, and explicit relaunch
@@ -117,103 +174,36 @@ function MainApp() {
   };
 
   const handleStartScan = () => {
-    if (Capacitor.isNativePlatform()) { setScanError(t('android_beta_scan')); return; }
+    setScanCapability(null);
     setScanError(null);
     setViewState('CAMERA');
   };
 
   const handleImageCaptured = async (image: ProcessedImageResult) => {
+    if (!scanAvailable || !user || scanController.current) return;
+    const controller = new AbortController();
+    scanController.current = controller;
     setCapturedImage(image);
     setViewState('SCANNING');
     
     try {
-      const currentCalories = selectedDateConsumptions.reduce((sum, item) => sum + item.calories, 0);
-      const currentProtein = selectedDateConsumptions.reduce((sum, item) => sum + item.protein, 0);
-      const currentCarbs = selectedDateConsumptions.reduce((sum, item) => sum + item.carbs, 0);
-      const currentFat = selectedDateConsumptions.reduce((sum, item) => sum + item.fat, 0);
-
-      const targetCalories = settings.dailyGoal || 2000;
-      const targetProtein = Math.round(targetCalories * 0.2 / 4); // 20% from protein
-      const targetCarbs = Math.round(targetCalories * 0.5 / 4); // 50% from carbs
-      const targetFat = Math.round(targetCalories * 0.3 / 9); // 30% from fat
-
-      let primaryGoal: any = 'healthyEating';
-      if (settings.profile?.primaryGoal === 'Lose Weight') primaryGoal = 'weightLoss';
-      if (settings.profile?.primaryGoal === 'Gain Weight') primaryGoal = 'weightGain';
-      if (settings.profile?.primaryGoal === 'Build Muscle') primaryGoal = 'muscleBuilding';
-      if (settings.profile?.primaryGoal === 'Maintain Weight') primaryGoal = 'weightMaintenance';
-
-      const userProfile = {
-        primaryGoal,
-        conditions: [],
-        dailyTargets: {
-          calories: targetCalories,
-          protein: targetProtein,
-          carbs: targetCarbs,
-          fat: targetFat
-        },
-        currentIntake: {
-          calories: currentCalories,
-          protein: currentProtein,
-          carbs: currentCarbs,
-          fat: currentFat
-        }
-      };
-
-      const { commonFoods } = await import('./data/foodDatabase');
-      const foodIndex = commonFoods.map(f => ({
-        id: f.id,
-        name: f.name,
-        aliases: f.aliases || [],
-        searchKeywords: [...(f.aliases || []), f.name.toLowerCase()],
-        category: f.category
-      }));
-
-      const fetchFoodKnowledgeById = async (id: string) => {
-        const item = commonFoods.find(f => f.id === id);
-        if (!item) return null;
-        return {
-          id: item.id,
-          name: item.name,
-          aliases: item.aliases || [],
-          searchKeywords: [],
-          category: item.category || 'Other',
-          mealType: ['Lunch', 'Dinner'],
-          country: 'Cameroon',
-          regions: [],
-          servingSizes: { medium: item.servingSizeText || '1 serving' },
-          nutrition: {
-            calories: item.calories,
-            protein: item.protein,
-            carbohydrates: item.carbs,
-            fat: item.fat,
-            fiber: item.fiber || 0,
-            sugar: item.sugar || 0,
-            sodium: item.sodium || 0,
-          },
-          foodIntelligence: { concerns: item.concerns || [] },
-          goalCompatibility: {},
-          scores: { healthScore: 7, satietyScore: 7 },
-          foodRelationships: { betterAlternatives: item.alternatives || [] },
-          aiCoaching: []
-        } as any;
-      };
-
-      const result = await FoodRecognitionPipeline.process(image, {
-        userProfile,
-        foodIndex,
-        fetchFoodKnowledgeById
-      });
-      
-      // Delay for UX
-      setTimeout(() => {
-        setRecognitionResult(result);
-        setViewState('RESULTS');
-      }, 1500);
-    } catch (error: any) {
-      console.error("Pipeline failed", error);
-      setScanError(error?.message || t('recognition_error_desc'));
-      setViewState('CAMERA');
+      const result = await FoodRecognitionPipeline.process(image, commonFoods, controller.signal);
+      if (controller.signal.aborted) return;
+      saveSession.current = { id: crypto.randomUUID(), timestamp: Date.now(), owner: user.uid, saving: false };
+      setScanSaveError(false);
+      setRecognitionResult(result);
+      setViewState('RESULTS');
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      const code = error instanceof Error ? error.message : '';
+      const key = code === 'scan_quota_reached' ? 'camera_quota_reached'
+        : code === 'sign_in_required' ? 'camera_sign_in_for_scan'
+        : !navigator.onLine ? 'camera_offline' : 'recognition_error_desc';
+      setScanError(t(key));
+      setCapturedImage(null);
+      setViewState('DASHBOARD');
+    } finally {
+      if (scanController.current === controller) scanController.current = null;
     }
   };
 
@@ -222,43 +212,39 @@ function MainApp() {
     setViewState('SUMMARY');
   };
 
-  const handleSaveMeal = async () => {
-    if (recognitionResult) {
+  const handleSaveMeal = async (mealCategory: MealCategory) => {
+    const session = saveSession.current;
+    if (!recognitionResult || !session || session.saving || scanOwner.current !== session.owner) return;
+    session.saving = true;
+    setScanSaving(true);
+    setScanSaveError(false);
+    try {
       for (const item of recognitionResult.items) {
-        if (item.foodKnowledge) {
-          const baseGrams = parseServingGrams(item.foodKnowledge.servingSizes?.medium);
-          const weight = item.estimatedPortion.estimatedWeight;
-          const scale = baseGrams && baseGrams > 0 && weight && weight > 0
-            ? weight / baseGrams
-            : 1;
-          const scaledCals = Math.round((item.foodKnowledge.nutrition.calories || 0) * scale);
-          const scaledProt = Math.round((item.foodKnowledge.nutrition.protein || 0) * scale * 10) / 10;
-          const scaledCarb = Math.round((item.foodKnowledge.nutrition.carbohydrates || 0) * scale * 10) / 10;
-          const scaledFat = Math.round((item.foodKnowledge.nutrition.fat || 0) * scale * 10) / 10;
-          await addConsumption({
-            id: Date.now().toString() + Math.random().toString(),
-            name: item.detectedLabel,
-            calories: scaledCals,
-            protein: scaledProt,
-            carbs: scaledCarb,
-            fat: scaledFat,
-            servings: Math.round(scale * 100) / 100,
-            mealCategory: 'Lunch',
-            timestamp: Date.now(),
-            foodId: item.foodKnowledge.id,
-            servingSizeText: item.foodKnowledge.servingSizes?.medium
-          });
-        }
+        if (scanOwner.current !== session.owner) break;
+        const portion = getScanPortion(item);
+        if (!portion) continue;
+        await addConsumption({
+          ...portion.record,
+          id: `${session.id}-${item.detectionId}`,
+          mealCategory,
+          timestamp: session.timestamp,
+        });
       }
+      setViewState('DASHBOARD');
+      setCapturedImage(null);
+      setRecognitionResult(null);
+      saveSession.current = null;
+    } catch {
+      setScanSaveError(true);
+    } finally {
+      session.saving = false;
+      setScanSaving(false);
     }
-    setViewState('DASHBOARD');
-    setCapturedImage(null);
-    setRecognitionResult(null);
   };
 
   return (
-    <div className="flex justify-center items-center h-screen bg-gray-100 sm:p-4">
-      <div className="w-full h-full sm:w-[400px] sm:h-[800px] bg-white sm:rounded-[40px] sm:shadow-2xl overflow-hidden relative flex flex-col sm:border-[8px] sm:border-gray-900">
+    <div className="flex justify-center items-center h-dvh bg-gray-100 sm:p-4">
+      <div className="w-full h-full sm:w-[400px] sm:h-[800px] sm:max-h-full bg-white sm:rounded-[40px] sm:shadow-2xl overflow-hidden relative flex flex-col sm:border-[8px] sm:border-gray-900">
         
         <div className="flex-1 overflow-hidden relative bg-gray-50 flex flex-col">
           {/* Explicit Consent Local Data Import Banner */}
@@ -434,9 +420,12 @@ function MainApp() {
               )}
 
               {viewState === 'CAMERA' && (
-                <motion.div key="camera" className="absolute inset-0 z-50 bg-black" initial={{y:'100%'}} animate={{y:0}} exit={{y:'100%'}}>
+                <motion.div key="camera" className="absolute inset-0 z-50 bg-black" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.16 }}>
                   <CameraScreen 
-                    onCapture={handleImageCaptured} 
+                    onCapture={handleImageCaptured}
+                    scanAvailable={scanAvailable}
+                    scanLimit={scanCapability?.limit}
+                    unavailableMessage={!isOnline ? t('camera_offline') : !user ? t('camera_sign_in_for_scan') : undefined}
                     onClose={() => setViewState('DASHBOARD')} 
                     onManualEntry={() => {
                       setViewState('DASHBOARD');
@@ -448,7 +437,7 @@ function MainApp() {
               )}
               {viewState === 'SCANNING' && (
                 <motion.div key="scanning" className="absolute inset-0 z-50 bg-gray-900" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-                  <ScanningScreen image={capturedImage} />
+                  <ScanningScreen image={capturedImage} onCancel={cancelScan} />
                 </motion.div>
               )}
               {viewState === 'RESULTS' && recognitionResult && (
@@ -469,7 +458,9 @@ function MainApp() {
                 <motion.div key="summary" className="absolute inset-0 z-50 bg-gray-50" initial={{x:'100%'}} animate={{x:0}} exit={{x:'-100%'}}>
                   <SummaryScreen 
                     result={recognitionResult} 
-                    onSave={handleSaveMeal} 
+                    onSave={handleSaveMeal}
+                    saving={scanSaving}
+                    saveError={scanSaveError}
                     onBack={() => setViewState('RESULTS')} 
                   />
                 </motion.div>
@@ -492,14 +483,14 @@ function MainApp() {
                   <div>
                     <h3 className="text-lg font-bold text-gray-900">{t('recognition_unavailable')}</h3>
                     <p className="text-sm text-gray-600 mt-1 leading-relaxed">
-                      {t('recognition_error_desc')}
+                      {scanError}
                     </p>
                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 pt-2">
                   <button
                     type="button"
-                    onClick={() => setScanError(null)}
+                    onClick={handleStartScan}
                     className="w-full sm:flex-1 py-3 px-4 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-colors text-center order-2 sm:order-1"
                   >
                     {t('retry_photo')}
@@ -531,10 +522,12 @@ function MainApp() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      {['/privacy', '/delete-account'].includes(window.location.pathname) ? (
-        <PrivacyPanel standalone deletionOnly={window.location.pathname === '/delete-account'} />
-      ) : <DataProvider><MainApp /></DataProvider>}
-    </AuthProvider>
+    <MotionConfig reducedMotion="user">
+      <AuthProvider>
+        {['/privacy', '/delete-account'].includes(window.location.pathname) ? (
+          <PrivacyPanel standalone deletionOnly={window.location.pathname === '/delete-account'} />
+        ) : <DataProvider><MainApp /></DataProvider>}
+      </AuthProvider>
+    </MotionConfig>
   );
 }

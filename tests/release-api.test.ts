@@ -45,9 +45,21 @@ test('cached request does not call the provider again', () => withApi(async (url
   const result = await scan(url); assert.equal(result.status, 200); assert.deepEqual(await result.json(), foods); assert.equal(calls.provider, 0);
 }, { claim: async () => ({ cached: foods }) }));
 test('quota rejection is surfaced with retry instructions', () => withApi(async (url, calls) => {
-  const result = await scan(url); assert.equal(result.status, 429); assert.ok(result.headers.get('retry-after')); assert.equal(calls.provider, 0);
+  const result = await scan(url);
+  assert.equal(result.status, 429);
+  const retry = Number(result.headers.get('retry-after'));
+  assert.ok(retry >= 1 && retry <= 86_400);
+  assert.deepEqual(await result.json(), { code: 'scan_quota_reached' });
+  assert.equal(calls.provider, 0);
 }, { claim: async () => { throw new ApiError(429, 'scan_quota_reached'); } }));
+test('capabilities shares the configured account limit without opening access or using the provider', () => withApi(async (url, calls) => {
+  const result = await fetch(url + '/capabilities');
+  assert.equal(result.status, 200);
+  assert.equal((await result.json()).scanDailyLimit, config.dailyLimit);
+  assert.equal(calls.provider, 0);
+}));
 test('cloud features default-disabled do not perform destructive or billable calls', () => withApi(async (url, calls) => {
+  assert.equal((await (await fetch(url + '/capabilities')).json()).scanDailyLimit, null);
   assert.equal((await scan(url)).status, 503);
   assert.equal((await fetch(url + '/account', { method: 'DELETE', headers: { Authorization: 'Bearer verified', 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmation: 'DELETE' }) })).status, 503);
   assert.equal(calls.provider, 0); assert.deepEqual(calls.deletion, []);

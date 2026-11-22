@@ -44,6 +44,15 @@ No deployment approval has been requested yet because native/device and producti
 - Prepared Android 0.1.1-beta and an opt-in Google Credential Manager bridge to the existing Firebase account. Native account use requires Android registration, the signing fingerprint, and the Web OAuth client ID. See `docs/android-google-sign-in.md`.
 - Device acceptance still requires testing guest logging offline and two-account sign-in, isolation, and consent with physical Android hardware.
 
-## Hosted build evidence
+## Android camera beta 0.1.2
+
+- Camera and gallery preview are available locally from the scan button. Opening the scan screen does not request permission. Upload happens only after the user chooses Analyze and a signed-in, online session discovers an enabled API.
+- Camera switching releases the prior lens. Closing, taking a preview, or backgrounding releases the active stream. Gallery input rejects unreadable or oversized files, and photos are resized to at most 800 pixels before upload. UI labels are bilingual and motion respects device settings.
+- Existing server quotas bound paid analyses. The API advertises the account limit and reports exhaustion with the UTC reset time. Scan results require user-entered grams and use the existing portion scaling for both summary and logging.
+- The standard beta build leaves cloud recognition unconfigured. A staging build can use the public GitHub Actions variables `MBOAFIT_BETA_API_BASE_URL` and `MBOAFIT_BETA_GOOGLE_WEB_CLIENT_ID`. The staging backend must independently enable scanning and configure Gemini credentials server-side. Closing the scan screen stops waiting for the result, but a request already accepted by the server can use a scan. Validate permission denial, capture, switch, backgrounding, photo picker, upload cancellation, quota and two-account isolation on a phone before broader rollout.
+
+- Verified the camera and gallery flow in a 390 × 740 Chromium viewport using a simulated camera device, including permission only on request, track shutdown after capture, corrupt-image recovery, manual fallback and zero guest photo uploads. Browser and API tests do not establish physical Android behavior or live Gemini recognition.
+
+## October hosted build evidence
 
 GitHub Actions run https://github.com/kaffeallain-dev/kaffeallain-dev/actions/runs/40323365266 succeeded for commit 81bfdea92a9a9a595c9b98819abc53eaf64e0954. Typecheck/regressions, web build, Capacitor sync and Android assembleDebug all passed on Linux. Artifact MboaFit-android-guest-beta (ID12649259645), 4,352,851 bytes, expires 2 November2026. Artifact ZIP SHA256:4b505fab01a8a7a71edd523da8eb203baf5c4e4f5c762a7487e7a690fd99b0e3. Draft PR:https://github.com/kaffeallain-dev/kaffeallain-dev/pull/3. Main/live deployment unchanged. Local browser preview could not connect to the local server in this environment; no new visual/mobile verification claimed.
