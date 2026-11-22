@@ -18,7 +18,6 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
-import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException;
 
 @CapacitorPlugin(name = "GoogleAccount")
 public class GoogleAccountPlugin extends Plugin {
@@ -47,7 +46,7 @@ public class GoogleAccountPlugin extends Plugin {
                     try {
                         String token = GoogleIdTokenCredential.createFrom(credential.getData()).getIdToken();
                         call.resolve(new JSObject().put("idToken", token));
-                    } catch (GoogleIdTokenParsingException exception) {
+                    } catch (IllegalArgumentException exception) {
                         call.reject("Invalid Google credential", "sign-in-failed");
                     }
                 }
