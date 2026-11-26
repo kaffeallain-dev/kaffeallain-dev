@@ -1,3 +1,5 @@
+import type { ScanOutcome } from '../../../../../shared/scanResponse';
+
 export interface BoundingBox {
   xMin: number;
   yMin: number;
@@ -9,7 +11,7 @@ export interface DetectedFood {
   detectionId: string;
   foodName: string;
   confidence: number;
-  boundingBox: BoundingBox;
+  boundingBox?: BoundingBox;
   estimatedWeight: number; // in grams
   portion: 'Small' | 'Medium' | 'Large';
   isUnknown?: boolean;
@@ -21,9 +23,11 @@ export interface FoodDetectionRequest {
   imageWidth: number;
   imageHeight: number;
   base64Data?: string; // Optional for cloud fallback
+  signal?: AbortSignal;
 }
 
 export interface FoodDetectionResponse {
+  outcome: ScanOutcome;
   detections: DetectedFood[];
   processingTimeMs: number;
   source: 'LOCAL_TFLITE' | 'CLOUD_VISION';

@@ -1,0 +1,79 @@
+# MboaFit project state � 26 October 2026
+
+## Authoritative source and preservation
+
+Recovered 88 current source/config/test files directly from the existing AI Studio editor after its ZIP export failed and its agent returned permission denied twice. Checksum-verified before editing. Original snapshot ZIP and hash manifest are in the Codex workspace outputs. The original AI Studio project and public deployment have not been overwritten. This branch is the release work candidate; main remains unchanged.
+
+## Implemented in this branch
+
+- Existing Cameroon catalogue, core UI, manual-food validation, owner-scoped IndexedDB and sync controller preserved.
+- Remaining Recently Logged label translated; bilingual privacy/account controls and external `/privacy` and `/delete-account` routes added. Support/privacy email approved by owner: kaffeallain@gmail.com. Privacy text is a beta draft; provider data terms and production settings still need confirmation.
+- Billable API now requires verified Firebase ID tokens; ignores arbitrary client user IDs and bearer-prefix/IP-based quota identities. Strict image/result validation, size limits and bounded provider timeout. Durable transactional per-user/global daily limits plus idempotency. Conservative provisional defaults 5 attempts/user/day and 50/day globally. Cloud scanning off until explicitly configured.
+- Recent-authenticated, explicitly confirmed account deletion backend; recursive active data cleanup, partial-failure retry and late-response protection. Account deletion off until Admin permissions and deletion-barrier Firestore rules are deployed and live-tested. Tests never deleted a real account.
+- Client and server outputs separated into `dist/web` and `dist/server`, preventing server files/source maps from being served as public assets.
+- Capacitor Android 8 project generated. Provisional internal app ID `dev.kaffeallain.mboafit.beta`, version 0.1.0-beta. Android backup and cleartext networking disabled; no broad media permissions. Simple green/cream M mark. Guest/manual logging is the current Android scope; Google native sign-in requires registration/configuration before enabling. Scan action explains this and offers manual entry.
+- No fake local TFLite-loaded claim and no random portion fluctuation; heuristic estimates remain approximate and require review.
+- Dependency updates stay within the existing major stack. Targeted gRPC 1.14.6 override fixes the old Firebase Node dependency; Capacitor CLI pinned to the compatible 8.4.3 line to avoid its vulnerable iOS-only toolchain dependency. Audit currently reports zero vulnerabilities, including production audit.
+
+## Verification performed
+
+- Local `npm run lint`: passed after implementation.
+- Local production web/server build: passed; final repeat after packaging polish passed.
+- New release API suite: 15 passed, zero failed; actual HTTP routes and production Firebase service transactions execute against boundary fixtures.
+- Actual onboarding view suite: two passed (close without mutation; skip without forced goal). The prior harness imported the full browser Firebase context into JSDOM and hung; replaced with real-view bundling plus a mocked context boundary. No production logic is recreated in the test.
+- Full local regression suite passed: 260 checks across six suites (201 + 17 + 20 + 2 + 5 + 15).
+- Android project generation and Capacitor sync: succeeded. Local native compilation unavailable because this laptop has no Android SDK/JDK; hosted build workflow added.
+- No physical Android device test, live AI call, real account deletion, native Google sign-in, public deploy or Play upload performed.
+
+## Release blockers and exact next steps
+
+1. Hosted APK build succeeded. Install the artifact on a test phone. Test data persistence, EN/FR, manual portion editing, backup and offline relaunch.
+2. Confirm Play Console account existence, permanent application ID and release signing-key custody. No paid account was created; current artifact is debug-signed testing only.
+3. Register/configure actual Android Firebase/Google OAuth clients before enabling native sign-in; test two real accounts and cloud isolation on a phone.
+4. Deploy the staged server/rules through a reviewed approval. Verify named Belgium database, Admin permissions, API origin allowlist, recent-auth deletion and real external deletion URL before enabling cloud features.
+5. Choose/verify the Gemini model, provider data terms and operating budget; keep keys in server secrets. No VITE_ secret or unlimited scanning.
+6. Finalize the truthful privacy policy, health declaration, Data safety answers, real store screenshots and rating questionnaire. Source routes are not live public policy URLs.
+7. Cameroon currently supports Play developer registration but not merchant registration. This is a free beta; subscriptions/payment activation remains blocked on a legitimate supported merchant arrangement. No workaround checkout was added.
+8. Run required Google Play closed testing if applicable to the developer account, then production review. This is separate from the research design of 20 completed Cameroon sessions in two stages of 10 across five behavioral groups.
+
+No deployment approval has been requested yet because native/device and production configuration gates are not complete.
+
+## 22 November 2026 follow-up
+
+- Added 12 sourced Cameroon recipe entries with a 100 g edible-weight baseline, a bilingual estimate notice, and accent-insensitive local-name and alias search. Legacy IDs and nutrient baselines were kept. See `docs/cameroon-food-catalogue.md`.
+- Prepared Android 0.1.1-beta and an opt-in Google Credential Manager bridge to the existing Firebase account. Native account use requires Android registration, the signing fingerprint, and the Web OAuth client ID. See `docs/android-google-sign-in.md`.
+- Device acceptance still requires testing guest logging offline and two-account sign-in, isolation, and consent with physical Android hardware.
+
+## Android camera beta 0.1.2
+
+- Camera and gallery preview are available locally from the scan button. Opening the scan screen does not request permission. Upload happens only after the user chooses Analyze and a signed-in, online session discovers an enabled API.
+- Camera switching releases the prior lens. Closing, taking a preview, or backgrounding releases the active stream. Gallery input rejects unreadable or oversized files, and photos are resized to at most 800 pixels before upload. UI labels are bilingual and motion respects device settings.
+- Existing server quotas bound paid analyses. The API advertises the account limit and reports exhaustion with the UTC reset time. Scan results require user-entered grams and use the existing portion scaling for both summary and logging.
+- The standard beta build leaves cloud recognition unconfigured. A staging build can use the public GitHub Actions variables `MBOAFIT_BETA_API_BASE_URL` and `MBOAFIT_BETA_GOOGLE_WEB_CLIENT_ID`. The staging backend must independently enable scanning and configure Gemini credentials server-side. Closing the scan screen stops waiting for the result, but a request already accepted by the server can use a scan. Validate permission denial, capture, switch, backgrounding, photo picker, upload cancellation, quota and two-account isolation on a phone before broader rollout.
+
+- Verified in a 390 × 740 Chromium viewport with a simulated camera: opt-in capture, single-camera controls, stream release, corrupt-image recovery, French permission denial and manual fallback with zero photo uploads. Unit tests also checked lens constraints, cancellation and scan portions.
+- Android CI passed lint, all regression suites, web packaging and Gradle assembly. [Download beta 0.1.2](https://github.com/kaffeallain-dev/kaffeallain-dev/actions/runs/45038436242/artifacts/14760632595). GitHub artifact expires November 29, 2026. The checksum-verified archive and extracted APK are in `outputs` at the workspace root. APK SHA-256 `0abba8cad5d93ed5c94ab7c26f892f8ed7c65c0dba065a8f389365e7da77e062`. Device and live provider checks are still pending.
+
+## Cameroon welcome screen and pilot defaults
+
+- New visitors can browse the full English/French-searchable catalog before onboarding or signing in. The welcome screen counts distinct catalog IDs (165 at this checkpoint). The bundled photo is [Ndolé with plantain by 12wams, CC0](https://commons.wikimedia.org/wiki/File:Plat_camerounais_de_ndol%C3%A8_au_plantain.png), resized for mobile. Motion uses the app's existing reduced-motion setting.
+- Food scan review offers half and full reference portions only when the catalog has a gram baseline. Users can enter their own grams. The backend defaults to one scan per account daily when enabled. Actual photo-to-weight estimation requires a separate weighed-meal validation set.
+- Startup now hydrates the initially active guest store and recognizes legacy guest completion flags, protecting returning users from being routed through the welcome flow again. Native Google login still requires an Android registration and a verified phone test. The existing Starter Tier Firebase project showed only a web app registration.
+- Verified local typecheck, production web/server build, full regression command and Capacitor sync. In mobile-size Chromium, verified English/French welcome screens, browsing and logging offline as a guest, the saved meal after reload, and the existing simulated-camera capture, gallery and permission-denial flows. No native APK assembly, live Gemini recognition or Android OAuth test was performed for this change.
+
+## Scan outcome regression fix
+
+- A screenshot from the older AI Studio preview showed a rice-and-beans photo with zero results. The archived scanner converted HTTP and network failures to empty successes. The screenshot alone does not establish which backend error occurred.
+- The working source now requires an explicit food, non-food, or uncertain outcome and validates it on both sides of the API. Contradictory or malformed model responses fail closed. Food matches require user confirmation and support catalog search before entering a portion. The Gemini instruction explicitly handles visible rice with beans and non-food objects, including a foot.
+- Source changes still need to reach the AI Studio preview. A live staging check with the original meal photo and a non-food photo is required to evaluate model accuracy.
+- Typecheck, web/server builds, 18 API tests, and the scan review UI test passed. The API tests exercised HTTP requests with fixture provider responses. The UI test exercised the actual results component with a rice-and-beans suggestion and verified that both empty outcomes offer manual logging without a review action.
+
+## Android beta 0.1.3
+
+- Added a slow moving food image honoring reduced-motion, an explicit Start button, an account choice screen, and access to optional onboarding questions with Skip. Returning users and direct catalog exploration remain supported.
+- Insights labels missing days and calorie estimates explicitly. Meal suggestions are withheld until at least three days have entries and a relevant pattern exists. The existing heuristic insights still require a deeper evidence and accessibility review before general release.
+- Google provider is enabled in Firebase, but the Android OAuth client/signing certificate and physical-device tests remain pending. Cloud meal detection is disabled in the standard beta.
+
+## October hosted build evidence
+
+GitHub Actions run https://github.com/kaffeallain-dev/kaffeallain-dev/actions/runs/40323365266 succeeded for commit 81bfdea92a9a9a595c9b98819abc53eaf64e0954. Typecheck/regressions, web build, Capacitor sync and Android assembleDebug all passed on Linux. Artifact MboaFit-android-guest-beta (ID12649259645), 4,352,851 bytes, expires 2 November2026. Artifact ZIP SHA256:4b505fab01a8a7a71edd523da8eb203baf5c4e4f5c762a7487e7a690fd99b0e3. Draft PR:https://github.com/kaffeallain-dev/kaffeallain-dev/pull/3. Main/live deployment unchanged. Local browser preview could not connect to the local server in this environment; no new visual/mobile verification claimed.

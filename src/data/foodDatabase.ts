@@ -1,6 +1,8 @@
 import { FoodItemTemplate } from "../types";
+import { cameroonFoods } from "./cameroonFoods";
 
 export const commonFoods: FoodItemTemplate[] = [
+  ...cameroonFoods,
   {
     "id": "sp1",
     "name": "Ndolé",

@@ -6,3 +6,14 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Private transport and build outputs
+release/source-*.json
+SOURCE_EXPORT_MANIFEST.json
+dependency-audit*.json
+android/.gradle/
+android/local.properties
+android/app/build/
+android/build/
+*.keystore
+*.jks

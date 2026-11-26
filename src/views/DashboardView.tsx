@@ -8,29 +8,28 @@ import {
   Zap,
   Lightbulb,
   Camera,
-  AlertTriangle,
-  Activity,
+  Target,
+  X
 } from "lucide-react";
 import { motion } from "motion/react";
 import { format, isToday, isYesterday, addDays, subDays } from "date-fns";
-import { getProfileCompletion } from "../lib/personalization";
+import { fr } from "date-fns/locale";
+import { getProfileCompletion, isProfileSufficientForTarget } from "../lib/personalization";
 import { commonFoods } from "../data/foodDatabase";
 import { RecommendationEngine } from "../lib/RecommendationEngine";
-import {
-  computeWeightTrend,
-  adaptTargetToTrend,
-  buildAdaptiveRecommendations,
-  computeDashboardStatus,
-  loggingStreak,
-  COACHING_DISCLAIMER,
-} from "../lib/adaptiveCoaching";
+import { useI18n } from "../lib/i18n";
 
 export default function DashboardView({
   onLogFood,
+  onOpenSettings,
+  onOpenOnboarding,
 }: {
   onLogFood: (meal: MealCategory, food?: any, record?: any) => void;
   onOpenSettings: () => void;
+  onOpenOnboarding?: () => void;
 }) {
+  const { t, lang } = useI18n();
+  const dateLocale = lang === 'fr' ? fr : undefined;
   const {
     settings,
     selectedDate,
@@ -38,10 +37,6 @@ export default function DashboardView({
     selectedDateConsumptions,
     allConsumptions,
     customFoods,
-    weightEntries,
-    addWeightEntry,
-    dataError,
-    clearDataError,
   } = useData();
 
   const totalCalories = selectedDateConsumptions.reduce(
@@ -53,6 +48,17 @@ export default function DashboardView({
     100,
     (totalCalories / settings.dailyGoal) * 100,
   );
+
+  const [isPromptDismissed, setIsPromptDismissed] = useState<boolean>(() => {
+    return typeof window !== 'undefined' && localStorage.getItem('mboafit_profile_prompt_dismissed') === 'true';
+  });
+
+  const handleDismissPrompt = () => {
+    setIsPromptDismissed(true);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mboafit_profile_prompt_dismissed', 'true');
+    }
+  };
 
   const mealCategories: MealCategory[] = [
     "Breakfast",
@@ -69,9 +75,9 @@ export default function DashboardView({
   };
 
   const getDisplayDate = () => {
-    if (isToday(selectedDate)) return "Today";
-    if (isYesterday(selectedDate)) return "Yesterday";
-    return format(selectedDate, "EEEE, MMM do");
+    if (isToday(selectedDate)) return t('today');
+    if (isYesterday(selectedDate)) return t('yesterday');
+    return format(selectedDate, lang === 'fr' ? "EEEE d MMMM" : "EEEE, MMM do", { locale: dateLocale });
   };
 
   const dailySummary = useMemo(() => {
@@ -82,93 +88,16 @@ export default function DashboardView({
     );
   }, [selectedDateConsumptions, settings.dailyGoal, settings.profile]);
 
-  // ---- Adaptive coaching: driven by the user's real logged data ----
-  const trend = useMemo(() => computeWeightTrend(weightEntries), [weightEntries]);
-
-  const recentConsumptions = useMemo(() => {
-    const cutoff = Date.now() - 7 * 24 * 3600 * 1000;
-    return allConsumptions.filter((c) => c.timestamp >= cutoff);
-  }, [allConsumptions]);
-
-  const recentDaysLogged = useMemo(() => loggingStreak(recentConsumptions), [recentConsumptions]);
-
-  const avgCalories = useMemo(() => {
-    if (recentDaysLogged === 0) return 0;
-    return recentConsumptions.reduce((s, c) => s + c.calories, 0) / recentDaysLogged;
-  }, [recentConsumptions, recentDaysLogged]);
-
-  const adaptiveTarget = useMemo(
-    () => adaptTargetToTrend(settings.profile, trend),
-    [settings.profile, trend]
-  );
-
-  const status = useMemo(
-    () =>
-      computeDashboardStatus({
-        profile: settings.profile,
-        trend,
-        daysLogged: recentDaysLogged,
-        avgCalories,
-        targetCalories: adaptiveTarget.targetCalories,
-      }),
-    [settings.profile, trend, recentDaysLogged, avgCalories, adaptiveTarget]
-  );
-
-  const adaptiveRecs = useMemo(
-    () =>
-      buildAdaptiveRecommendations({
-        profile: settings.profile,
-        consumptions: recentConsumptions,
-        trend,
-        entries: weightEntries,
-      }),
-    [settings.profile, recentConsumptions, trend, weightEntries]
-  );
-
-  const statusPill =
-    status.status === "on-track"
-      ? "bg-emerald-100 text-emerald-700"
-      : status.status === "needs-attention"
-        ? "bg-amber-100 text-amber-700"
-        : status.status === "off-track"
-          ? "bg-red-100 text-red-700"
-          : "bg-gray-100 text-gray-600";
-
-  const priorityStyles: Record<string, { pill: string; border: string }> = {
-    high: { pill: "bg-red-100 text-red-700", border: "border-l-red-500" },
-    medium: { pill: "bg-amber-100 text-amber-700", border: "border-l-amber-500" },
-    low: { pill: "bg-gray-100 text-gray-600", border: "border-l-gray-300" },
-  };
-
-  const [weightInput, setWeightInput] = useState("");
-  const [weightError, setWeightError] = useState<string | null>(null);
-
-  const handleLogWeight = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const v = Number(weightInput);
-    if (!Number.isFinite(v) || v <= 0 || v > 400) {
-      setWeightError("Enter a valid weight in kg.");
-      return;
-    }
-    try {
-      await addWeightEntry(v);
-      setWeightInput("");
-      setWeightError(null);
-    } catch (err: any) {
-      setWeightError(err?.message || "Could not save your weight.");
-    }
-  };
-
   const quickAddItems = useMemo(() => {
     const allAvailableFoods = [...customFoods, ...commonFoods];
     const counts = allConsumptions.reduce((acc, curr) => {
       acc[curr.name] = (acc[curr.name] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-
+    
     const recentNames = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
     const items: FoodItemTemplate[] = [];
-
+    
     for (const name of recentNames) {
       if (items.length >= 3) break;
       const food = allAvailableFoods.find(f => f.name === name);
@@ -176,7 +105,7 @@ export default function DashboardView({
         items.push(food);
       }
     }
-
+    
     if (items.length < 3) {
       const defaults = ["Indomie and Egg", "Beans and Bread (Haricot-Pain)", "Rice and Stew", "Puff Puff and Beans"];
       for (const name of defaults) {
@@ -216,7 +145,7 @@ export default function DashboardView({
               {getDisplayDate()}
             </h1>
             <p className="text-emerald-200 text-xs font-bold uppercase tracking-wider mt-0.5">
-              {format(selectedDate, "MMMM yyyy")}
+              {format(selectedDate, "MMMM yyyy", { locale: dateLocale })}
             </p>
           </div>
           <button
@@ -230,139 +159,133 @@ export default function DashboardView({
       </div>
 
       <div className="max-w-lg mx-auto px-4 -mt-4">
-        {/* DATA ERROR */}
-        {dataError && (
-          <div className="mb-4 bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-2">
-            <AlertTriangle size={18} className="text-red-600 shrink-0 mt-0.5" />
-            <p className="text-sm text-red-800 flex-1">{dataError}</p>
-            <button
-              onClick={clearDataError}
-              className="text-xs font-bold text-red-600 hover:text-red-800 shrink-0"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
         {/* SNAP A MEAL */}
         {isToday(selectedDate) && (
           <div className="mb-6">
-            <button
+            <button 
               onClick={() => onLogFood(getCurrentMealCategory())}
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200/50 rounded-2xl p-4 flex items-center justify-center gap-3 transition-colors"
             >
               <Camera className="w-6 h-6" />
-              <span className="font-bold text-lg">Snap a meal</span>
+              <span className="font-bold text-lg">{t('snap_a_meal')}</span>
             </button>
           </div>
         )}
 
         {/* TODAY'S NUTRITION */}
         <section className="mb-6">
-          <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
-            <div className="flex justify-between items-end mb-2">
-              <div>
-                <div className="text-2xl font-black text-gray-900 tracking-tight">
-                  {Math.round(totalCalories)} <span className="text-sm font-bold text-gray-500">kcal eaten</span>
+          {(() => {
+            const isProfileSufficient = isProfileSufficientForTarget(settings.profile);
+            return (
+              <div 
+                className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm"
+                aria-label={isProfileSufficient 
+                  ? t('aria_personalized_calorie_goal', { goal: settings.dailyGoal }) 
+                  : t('aria_reference_calorie_goal', { goal: settings.dailyGoal })}
+              >
+                <div className="flex justify-between items-end mb-2">
+                  <div>
+                    <div className="text-2xl font-black text-gray-900 tracking-tight">
+                      {Math.round(totalCalories)} <span className="text-sm font-bold text-gray-500">{t('kcal_eaten')}</span>
+                    </div>
+                    <div className="text-sm font-bold text-emerald-600 mt-0.5">
+                      ~{Math.round(remainingCalories)} {t('remaining')}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
+                      {isProfileSufficient ? t('daily_target') : t('general_ref_target_full')}
+                    </div>
+                    <div className="text-sm font-bold text-gray-900">~{settings.dailyGoal} kcal</div>
+                  </div>
                 </div>
-                <div className="text-sm font-bold text-emerald-600 mt-0.5">
-                  ~{Math.round(remainingCalories)} remaining
+                
+                <div className="h-3 bg-gray-100 rounded-full overflow-hidden mt-4">
+                  <motion.div
+                    className={`h-full ${getProgressBg()}`}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progressPercentage}%` }}
+                    transition={{ duration: 0.8, ease: "easeOut" }}
+                  />
+                </div>
+                
+                <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
+                  <span className="text-xs text-gray-500 font-medium truncate max-w-[170px]">
+                    {settings.profile?.primaryGoal 
+                      ? (settings.profile.primaryGoal === 'Lose Weight' ? t('goal_lose_weight') :
+                         settings.profile.primaryGoal === 'Gain Weight' ? t('goal_gain_weight') :
+                         settings.profile.primaryGoal === 'Build Muscle' ? t('goal_build_muscle') :
+                         settings.profile.primaryGoal === 'Maintain Weight' ? t('goal_maintain_weight') :
+                         t('goal_eat_healthier'))
+                      : t('no_goal_set')}
+                  </span>
+                  {onOpenOnboarding && (
+                    <button
+                      type="button"
+                      onClick={onOpenOnboarding}
+                      className="text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl transition-colors flex items-center gap-1.5 shrink-0"
+                    >
+                      <Target className="w-3.5 h-3.5 text-emerald-600" />
+                      {t('customize_goal_wizard')}
+                    </button>
+                  )}
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Daily Target</div>
-                <div className="text-sm font-bold text-gray-900">~{settings.dailyGoal} kcal</div>
-              </div>
-            </div>
+            );
+          })()}
 
-            <div className="h-3 bg-gray-100 rounded-full overflow-hidden mt-4">
-              <motion.div
-                className={`h-full ${getProgressBg()}`}
-                initial={{ width: 0 }}
-                animate={{ width: `${progressPercentage}%` }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
-              />
-            </div>
-
-            {adaptiveTarget.adjusted && adaptiveTarget.adjustmentReason && (
-              <p className="text-xs text-amber-800 mt-4 font-medium bg-amber-50 p-3 rounded-xl border border-amber-100">
-                <span className="font-bold">Adaptive suggestion:</span> {adaptiveTarget.adjustmentReason}
-              </p>
-            )}
-
-            {isProfileIncomplete && (
-              <p className="text-xs text-gray-500 mt-4 font-medium bg-gray-50 p-3 rounded-xl border border-gray-100">
-                <span className="font-bold text-gray-700">Nutrition estimate available.</span> Complete your profile in Settings for a more personalized daily target.
-              </p>
-            )}
-          </div>
-        </section>
-
-        {/* YOUR STATUS — driven by real trend + adherence data */}
-        <section className="mb-6">
-          <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-            <Activity className="w-4 h-4 text-emerald-500" /> Your status
-          </h2>
-          <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
-            <div className="mb-2">
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold ${statusPill}`}>
-                {status.label}
-              </span>
-            </div>
-            <p className="text-sm text-gray-600 leading-relaxed">{status.reason}</p>
-
-            {trend.direction !== "insufficient-data" ? (
-              <div className="mt-3 flex items-center gap-3 text-sm">
-                <div className="bg-gray-50 rounded-xl px-3 py-2 border border-gray-100">
-                  <span className="text-xs text-gray-500 font-semibold uppercase">7-day avg</span>
-                  <p className="font-black text-gray-900">{trend.avgKg.toFixed(1)} kg</p>
-                </div>
-                <div className="bg-gray-50 rounded-xl px-3 py-2 border border-gray-100">
-                  <span className="text-xs text-gray-500 font-semibold uppercase">Trend</span>
-                  <p className={`font-black ${trend.kgPerWeek < 0 ? "text-emerald-600" : trend.kgPerWeek > 0 ? "text-red-600" : "text-gray-900"}`}>
-                    {trend.kgPerWeek > 0 ? "+" : ""}{trend.kgPerWeek.toFixed(2)} kg/wk
+            {!isPromptDismissed && isProfileIncomplete && (
+              <div className="mt-3 p-3 bg-emerald-50/70 rounded-xl border border-emerald-100 flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0 pr-1">
+                  <p className="text-xs text-emerald-900 font-medium leading-snug">
+                    {t('complete_profile_wizard_prompt')}
                   </p>
                 </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {Boolean(settings.onboardingCompleted || (settings.profile as any)?.onboardingCompleted || (typeof window !== 'undefined' && localStorage.getItem('mboafit_onboarding_completed') === 'true')) ? (
+                    <button
+                      type="button"
+                      onClick={onOpenSettings}
+                      className="text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-xl shadow-xs transition-colors shrink-0"
+                    >
+                      {t('edit_profile')}
+                    </button>
+                  ) : (
+                    onOpenOnboarding && (
+                      <button
+                        type="button"
+                        onClick={onOpenOnboarding}
+                        className="text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-xl shadow-xs transition-colors shrink-0"
+                      >
+                        {t('relaunch_onboarding')}
+                      </button>
+                    )
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleDismissPrompt}
+                    className="p-1 text-emerald-700/60 hover:text-emerald-900 rounded-lg hover:bg-emerald-100/50 transition-colors"
+                    aria-label={t('btn_dismiss')}
+                    title={t('btn_dismiss')}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-            ) : (
-              <p className="text-xs text-gray-500 mt-3">
-                Log your weight below to unlock trend tracking — your status gets smarter with real data.
-              </p>
             )}
-
-            <form onSubmit={handleLogWeight} className="mt-4 flex gap-2">
-              <input
-                type="number"
-                step="0.1"
-                min="25"
-                max="400"
-                value={weightInput}
-                onChange={(e) => setWeightInput(e.target.value)}
-                placeholder="Weight (kg)"
-                className="flex-1 min-w-0 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-              <button
-                type="submit"
-                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition-colors shrink-0"
-              >
-                Log weight
-              </button>
-            </form>
-            {weightError && <p className="text-xs text-red-600 mt-1.5">{weightError}</p>}
-          </div>
         </section>
 
         {/* TODAY'S MEALS */}
         <section className="mb-6">
-          <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Today's Meals</h2>
+          <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">{t('todays_meals')}</h2>
           {selectedDateConsumptions.length === 0 ? (
             <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm text-center">
               <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-3">
                 <Camera className="w-6 h-6 text-emerald-600" />
               </div>
-              <h3 className="font-bold text-gray-900 text-base mb-2">Snap your first meal</h3>
+              <h3 className="font-bold text-gray-900 text-base mb-2">{t('snap_first_meal_title')}</h3>
               <p className="text-sm text-gray-500 leading-relaxed">
-                Take a photo and MboaFit will identify the food, estimate portions, and help you understand the nutrition.
+                {t('snap_first_meal_desc')}
               </p>
             </div>
           ) : (
@@ -371,27 +294,28 @@ export default function DashboardView({
                 {mealCategories.map(meal => {
                   const items = selectedDateConsumptions.filter(c => c.mealCategory === meal);
                   if (items.length === 0) return null;
+                  const mealKey = meal === 'Breakfast' ? 'meal_breakfast' : meal === 'Lunch' ? 'meal_lunch' : meal === 'Dinner' ? 'meal_dinner' : 'meal_snacks';
                   return (
                     <li key={meal} className="p-3">
-                      <h3 className="font-bold text-gray-900 text-sm mb-3">{meal}</h3>
+                      <h3 className="font-bold text-gray-900 text-sm mb-3">{t(mealKey)}</h3>
                       <ul className="space-y-4">
                         {items.map(item => (
                           <li key={item.id} className="flex flex-col gap-1">
                             <div className="flex justify-between items-center">
                               <span className="text-sm font-semibold text-gray-800">{item.name}</span>
                               <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg">
-                                ~{Math.round(item.calories)} kcal &middot; Estimated
+                                ~{Math.round(item.calories)} kcal
                               </span>
                             </div>
                             <div className="flex justify-between items-center">
                               <span className="text-xs text-gray-500">
-                                {item.servings} serving{item.servings !== 1 ? 's' : ''}
+                                {item.servings} {item.servings === 1 ? t('serving_singular') : t('servings')}
                               </span>
                               <button
                                 onClick={() => onLogFood(meal, null, item)}
                                 className="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center transition-colors"
                               >
-                                Review estimate &rarr;
+                                {t('review_estimate')}
                               </button>
                             </div>
                           </li>
@@ -403,9 +327,9 @@ export default function DashboardView({
               </ul>
               <div className="p-3 bg-gray-50 rounded-2xl mt-1 flex justify-between items-center border border-gray-100">
                 <span className="text-xs font-bold text-gray-600">
-                  {selectedDateConsumptions.length} {selectedDateConsumptions.length === 1 ? 'meal' : 'meals'} logged today
+                  {t('meals_logged_today', { n: selectedDateConsumptions.length, unit: selectedDateConsumptions.length === 1 ? t('unit_meal') : t('unit_meals') })}
                 </span>
-                <span className="text-xs font-bold text-gray-400">View in Meals</span>
+                <span className="text-xs font-bold text-gray-400">{t('view_in_meals')}</span>
               </div>
             </div>
           )}
@@ -415,7 +339,7 @@ export default function DashboardView({
         {isToday(selectedDate) && quickAddItems.length > 0 && (
           <section className="mb-6">
             <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5 mb-3">
-              <Zap className="w-4 h-4 text-emerald-500" /> Quick Add
+              <Zap className="w-4 h-4 text-emerald-500" /> {t('quick_add')}
             </h2>
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
               <ul className="divide-y divide-gray-50">
@@ -449,7 +373,7 @@ export default function DashboardView({
         {selectedDateConsumptions.length >= 2 && dailySummary.dailyFocus && (
           <section className="mb-6">
             <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <Lightbulb className="w-4 h-4 text-emerald-500" /> One thing to try
+              <Lightbulb className="w-4 h-4 text-emerald-500" /> {t('one_thing_to_try')}
             </h2>
             <div className="bg-emerald-50 rounded-3xl p-5 border border-emerald-100 flex items-start gap-3 shadow-sm">
               <div>
@@ -460,39 +384,6 @@ export default function DashboardView({
             </div>
           </section>
         )}
-
-        {/* COACH INSIGHTS — tiered, personalized, data-driven */}
-        {adaptiveRecs.length > 0 && (
-          <section className="mb-6">
-            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <Activity className="w-4 h-4 text-emerald-500" /> Coach insights
-            </h2>
-            <div className="space-y-3">
-              {adaptiveRecs.map((rec, i) => {
-                const st = priorityStyles[rec.priority] ?? priorityStyles.low;
-                return (
-                  <div
-                    key={i}
-                    className={`bg-white p-4 rounded-2xl shadow-sm border border-gray-100 border-l-4 ${st.border}`}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${st.pill}`}>
-                        {rec.priority}
-                      </span>
-                      <h4 className="font-bold text-gray-900 text-sm">{rec.title}</h4>
-                    </div>
-                    <p className="text-sm text-gray-600 leading-relaxed">{rec.message}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* DISCLAIMER */}
-        <p className="text-[11px] text-gray-400 leading-relaxed text-center px-2 mb-2">
-          {COACHING_DISCLAIMER}
-        </p>
 
       </div>
     </div>

@@ -20,27 +20,27 @@ export class FoodConditionAI {
       }
 
       // 2. Check compatibility with specific conditions
-      if (profile.conditions.includes('highBloodPressure')) {
-        // Assume 'heartHealthy' mapping for blood pressure if specific one is missing, 
-        // though our schema might have highBloodPressure. 
-        // We cast to any to safely check extended properties or just rely on 'heartHealthy'
-        const hpCompat = (goalCompatibility as any).highBloodPressure || goalCompatibility.heartHealthy;
-        if (hpCompat && (hpCompat.level === 'Poor' || hpCompat.level === 'Moderate')) {
-           warnings.add(`${foodKnowledge.name} may impact blood pressure. ${hpCompat.reason}`);
+      const conditions = Array.isArray(profile?.conditions) ? profile.conditions : [];
+      if (goalCompatibility) {
+        if (conditions.includes('highBloodPressure')) {
+          const hpCompat = (goalCompatibility as any).highBloodPressure || goalCompatibility.heartHealthy;
+          if (hpCompat && (hpCompat.level === 'Poor' || hpCompat.level === 'Moderate')) {
+             warnings.add(`${foodKnowledge.name} may impact blood pressure. ${hpCompat.reason}`);
+          }
         }
-      }
 
-      if (profile.conditions.includes('diabetes')) {
-        const dCompat = goalCompatibility.diabetesFriendly;
-        if (dCompat && (dCompat.level === 'Poor' || dCompat.level === 'Moderate')) {
-           warnings.add(`${foodKnowledge.name} may spike blood sugar. ${dCompat.reason}`);
+        if (conditions.includes('diabetes')) {
+          const dCompat = goalCompatibility.diabetesFriendly;
+          if (dCompat && (dCompat.level === 'Poor' || dCompat.level === 'Moderate')) {
+             warnings.add(`${foodKnowledge.name} may spike blood sugar. ${dCompat.reason}`);
+          }
         }
-      }
 
-      if (profile.conditions.includes('heartDisease')) {
-        const hhCompat = goalCompatibility.heartHealthy;
-        if (hhCompat && (hhCompat.level === 'Poor' || hhCompat.level === 'Moderate')) {
-           warnings.add(`${foodKnowledge.name} is not ideal for heart health. ${hhCompat.reason}`);
+        if (conditions.includes('heartDisease')) {
+          const hhCompat = goalCompatibility.heartHealthy;
+          if (hhCompat && (hhCompat.level === 'Poor' || hhCompat.level === 'Moderate')) {
+             warnings.add(`${foodKnowledge.name} is not ideal for heart health. ${hhCompat.reason}`);
+          }
         }
       }
       
