@@ -1,5 +1,6 @@
 import express from 'express';
 import { createHash } from 'node:crypto';
+import { parseScanResponse } from '../shared/scanResponse';
 export class ApiError extends Error {
   constructor(public status: number, public code: string) { super(code); }
 }
@@ -25,12 +26,10 @@ export function validateImage(body: unknown) {
   else throw new ApiError(400, 'unsupported_image');
   return { image, mime, fingerprint: createHash('sha256').update(bytes).digest('hex') };
 }
-export function validateFoods(value: any) {
-  if (!Array.isArray(value?.foods) || value.foods.length > 20) throw new ApiError(502, 'invalid_ai_response');
-  return { foods: value.foods.map((food: any) => {
-    if (typeof food?.detectedName !== 'string' || !food.detectedName.trim() || food.detectedName.length > 160 || !Number.isFinite(food.confidence) || food.confidence < 0 || food.confidence > 1 || !Number.isFinite(food.estimatedAreaPercentage) || food.estimatedAreaPercentage < 0 || food.estimatedAreaPercentage > 1 || typeof food.category !== 'string' || food.category.length > 80) throw new ApiError(502, 'invalid_ai_response');
-    return { detectedName: food.detectedName.trim(), confidence: food.confidence, estimatedAreaPercentage: food.estimatedAreaPercentage, category: food.category };
-  }) };
+export function validateFoods(value: unknown) {
+  const result = parseScanResponse(value);
+  if (!result) throw new ApiError(502, 'invalid_ai_response');
+  return result;
 }
 export function createApi(deps: ApiDependencies, config: ApiConfig) {
   const api = express.Router();
@@ -74,7 +73,7 @@ export function createApi(deps: ApiDependencies, config: ApiConfig) {
       if (typeof key !== 'string' || !/^[a-zA-Z0-9_-]{16,100}$/.test(key)) throw new ApiError(400, 'invalid_request_id');
       const { image, mime, fingerprint } = validateImage(req.body);
       const claim = await deps.claim({ uid, key, fingerprint, now: Date.now(), dailyLimit: config.dailyLimit, globalLimit: config.globalLimit });
-      if (claim.cached !== undefined) return res.json(claim.cached);
+      if (claim.cached !== undefined) return res.json(validateFoods(claim.cached));
       claimed = true;
       const result = validateFoods(await deps.detect(image, mime));
       await deps.finish(uid, key, result, false);

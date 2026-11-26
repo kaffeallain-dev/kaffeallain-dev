@@ -18,7 +18,7 @@ import { useI18n } from '../lib/i18n';
 import { parseCustomFoodDraft, hasCatalogueGuidance } from '../lib/manualFood';
 import { foodSearchRank } from '../lib/foodSearch';
 
-export default function LogFoodView({ initialMeal, initialFood, initialRecord, onBack }: { initialMeal: MealCategory, initialFood?: FoodItemTemplate | null, initialRecord?: ConsumptionRecord | null, onBack: () => void }) {
+export default function LogFoodView({ initialMeal, initialFood, initialRecord, browseCatalog = false, onBack }: { initialMeal: MealCategory, initialFood?: FoodItemTemplate | null, initialRecord?: ConsumptionRecord | null, browseCatalog?: boolean, onBack: () => void }) {
   const { t } = useI18n();
   const { settings, addConsumption, updateConsumption, customFoods, allConsumptions, addCustomFood } = useData();
   const [mealCategory, setMealCategory] = useState<MealCategory>(() => {
@@ -211,7 +211,7 @@ export default function LogFoodView({ initialMeal, initialFood, initialRecord, o
   }, [allAvailableFoods, searchQuery]);
 
   const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return [];
+    if (!searchQuery.trim()) return browseCatalog ? allAvailableFoods : [];
     const multiword = /[\s,&+]/.test(searchQuery.trim());
     return allAvailableFoods.map(food => ({ food, rank: foodSearchRank(food, searchQuery) }))
       .filter(match => match.rank > 0)
@@ -242,7 +242,7 @@ export default function LogFoodView({ initialMeal, initialFood, initialRecord, o
 
       return 0;
     }).slice(0, 30).map(match => match.food);
-  }, [searchQuery, allAvailableFoods]);
+  }, [searchQuery, allAvailableFoods, browseCatalog]);
 
   const handleLogFood = async () => {
     if (!selectedFood || !isValidPortion || effectiveMultiplier === null) return;
@@ -834,7 +834,7 @@ export default function LogFoodView({ initialMeal, initialFood, initialRecord, o
         </div>
 
         <div className="flex-1 overflow-y-auto -mx-6 px-6">
-          {!searchQuery && recentFoods.length > 0 && (
+          {!browseCatalog && !searchQuery && recentFoods.length > 0 && (
             <div className="mb-6">
               <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">{t('recently_logged')}</h3>
               <ul className="space-y-2">
@@ -855,7 +855,7 @@ export default function LogFoodView({ initialMeal, initialFood, initialRecord, o
             </div>
           )}
 
-          {!searchQuery && quickLogFoods.length > 0 && (
+          {!browseCatalog && !searchQuery && quickLogFoods.length > 0 && (
             <div className="mb-6">
               <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">{t('quick_add')}</h3>
               <ul className="space-y-2">
@@ -876,7 +876,7 @@ export default function LogFoodView({ initialMeal, initialFood, initialRecord, o
             </div>
           )}
 
-          {!searchQuery && recentFoods.length === 0 && quickLogFoods.length === 0 && (
+          {!browseCatalog && !searchQuery && recentFoods.length === 0 && quickLogFoods.length === 0 && (
             <div className="text-center py-10 opacity-60">
               <p className="text-gray-500">{t('manual_search_hint')}</p>
             </div>
@@ -899,7 +899,7 @@ export default function LogFoodView({ initialMeal, initialFood, initialRecord, o
             </div>
           )}
 
-          {searchQuery && searchResults.length > 0 && (
+          {(browseCatalog || searchQuery) && searchResults.length > 0 && (
             <div className="space-y-6 pb-10">
               {Array.from(new Set(searchResults.map(f => f.category || 'Other'))).map(cat => {
                 const group = searchResults.filter(f => (f.category || 'Other') === cat);

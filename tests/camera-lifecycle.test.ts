@@ -16,7 +16,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { CameraEngine, CameraSession } from '../src/features/vision/presentation/acquisition/CameraEngine';
-import { getScanPortion } from '../src/lib/scanPortion';
+import { getScanPortion, getScanReferenceAmounts } from '../src/lib/scanPortion';
 import type { RecognizedItemDetails } from '../src/features/vision/domain/pipeline/FoodRecognitionPipelineTypes';
 
 test('switching lenses stops the previous stream and requests video only', async () => {
@@ -80,6 +80,15 @@ test('scan nutrients require an entered amount and a catalog gram baseline', () 
   assert.equal(portion?.record.calories, 362);
   assert.equal(portion?.record.carbs, 44.4);
   assert.equal(portion?.record.servings, 2);
+});
+
+test('scan serving shortcuts use the catalog grams and leave unknown servings unquantified', () => {
+  assert.deepEqual(getScanReferenceAmounts('1 bowl (250 g)'), [
+    { quantity: '½', grams: 125 },
+    { quantity: '1', grams: 250 },
+  ]);
+  assert.deepEqual(getScanReferenceAmounts('1 bowl'), []);
+  assert.equal(getScanReferenceAmounts('1 g').length, 1);
 });
 
 const originalNavigatorDesc = Object.getOwnPropertyDescriptor(globalThis, 'navigator');

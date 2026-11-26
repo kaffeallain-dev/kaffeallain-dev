@@ -139,6 +139,7 @@ export class SyncController {
     this.isOnline = isOnline;
 
     if (this.ownerKey === nextKey) {
+      if (this.ownerLoadSeq === 0) void this.loadDataForOwner(nextKey, this.sessionGeneration);
       return;
     }
 

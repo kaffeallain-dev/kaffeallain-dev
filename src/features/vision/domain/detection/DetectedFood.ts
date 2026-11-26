@@ -1,3 +1,5 @@
+import type { ScanOutcome } from '../../../../../shared/scanResponse';
+
 export interface BoundingBox {
   xMin: number;
   yMin: number;
@@ -25,6 +27,7 @@ export interface FoodDetectionRequest {
 }
 
 export interface FoodDetectionResponse {
+  outcome: ScanOutcome;
   detections: DetectedFood[];
   processingTimeMs: number;
   source: 'LOCAL_TFLITE' | 'CLOUD_VISION';

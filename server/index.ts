@@ -13,7 +13,7 @@ const limit = (key: string, fallback: number, max: number) => {
 app.use('/api', createApi(createServices(), {
   scansEnabled: process.env.ENABLE_CLOUD_SCANS === 'true' && !!process.env.GEMINI_API_KEY && !!process.env.GEMINI_MODEL,
   deletionEnabled: process.env.ENABLE_ACCOUNT_DELETION === 'true',
-  dailyLimit: limit('SCAN_DAILY_LIMIT', 5, 100),
+  dailyLimit: limit('SCAN_DAILY_LIMIT', 1, 100),
   globalLimit: limit('SCAN_GLOBAL_DAILY_LIMIT', 50, 10000),
   allowedOrigins: (process.env.ALLOWED_ORIGINS || '').split(',').map(x => x.trim()).filter(Boolean),
 }));

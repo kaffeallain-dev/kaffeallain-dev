@@ -238,6 +238,32 @@ test('4. Hydration preserves pending local settings and does NOT overwrite them 
 });
 
 // =========================================================================
+// Initial owner hydration
+// ============================================================================
+test('first activation of the already-selected guest owner hydrates exactly once', { timeout: 3000 }, async () => {
+  const guest = { kind: 'guest' as const };
+  const controller = new SyncController(guest, false, { dbModule: db });
+  let readyNotifications = 0;
+  let ready!: () => void;
+  const hydrated = new Promise<void>(resolve => { ready = resolve; });
+  const unsubscribe = controller.subscribe(state => {
+    if (!state.isLoading) {
+      readyNotifications++;
+      ready();
+    }
+  });
+  try {
+    controller.switchOwner(guest, false);
+    controller.switchOwner(guest, false);
+    await hydrated;
+    assert.equal(readyNotifications, 1);
+    assert.equal(controller.getState().settings.id, controller.getOwnerKey());
+  } finally {
+    unsubscribe();
+  }
+});
+
+// ============================================================================
 // 5. Concurrent Hydration & Mutation
 // =========================================================================
 test('5. Concurrent local mutation during hydration is preserved and not clobbered by remote load', async () => {

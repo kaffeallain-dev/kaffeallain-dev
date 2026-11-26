@@ -5,6 +5,7 @@ import DashboardView from './views/DashboardView';
 import LogFoodView from './views/LogFoodView';
 import OnboardingView from './views/OnboardingView';
 import SettingsView from './views/SettingsView';
+import { AccountView, WelcomeView } from './views/WelcomeView';
 import AnalyticsView from './views/AnalyticsView';
 import { PrivacyPanel } from './components/PrivacyPanel';
 import { apiUrl } from './lib/apiClient';
@@ -24,7 +25,7 @@ import { useI18n } from './lib/i18n';
 import { commonFoods } from './data/foodDatabase';
 
 type Tab = 'Home' | 'Meals' | 'Analytics' | 'Settings';
-type ViewState = 'ONBOARDING' | 'DASHBOARD' | 'CAMERA' | 'SCANNING' | 'RESULTS' | 'SUMMARY';
+type ViewState = 'WELCOME' | 'ACCOUNT' | 'ONBOARDING' | 'DASHBOARD' | 'CAMERA' | 'SCANNING' | 'RESULTS' | 'SUMMARY';
 
 function MainApp() {
   const { 
@@ -47,7 +48,7 @@ function MainApp() {
   const [viewState, setViewState] = useState<ViewState>('DASHBOARD');
   const [hasInitializedView, setHasInitializedView] = useState(false);
   
-  const [logMealContext, setLogMealContext] = useState<{meal: MealCategory, food?: FoodItemTemplate | null, record?: ConsumptionRecord | null}>({ meal: 'Snacks' });
+  const [logMealContext, setLogMealContext] = useState<{meal: MealCategory, food?: FoodItemTemplate | null, record?: ConsumptionRecord | null, browseCatalog?: boolean}>({ meal: 'Snacks' });
   
   const [capturedImage, setCapturedImage] = useState<ProcessedImageResult | null>(null);
   const [recognitionResult, setRecognitionResult] = useState<FoodRecognitionResult | null>(null);
@@ -128,8 +129,8 @@ function MainApp() {
       const ownerId = settings.id || 'guest';
       const isOwnerCompleted = typeof window !== 'undefined' && (
         localStorage.getItem(`mboafit_onboarding_${ownerId}`) === 'true' ||
-        (ownerId !== 'guest' && localStorage.getItem(`onboarding_completed_${ownerId}`) === 'true') ||
-        (ownerId === 'guest' && (
+        (user && localStorage.getItem(`onboarding_completed_${ownerId}`) === 'true') ||
+        (!user && (
           localStorage.getItem('mboafit_onboarding_completed') === 'true' ||
           localStorage.getItem('dailycal_onboarding_completed') === 'true'
         ))
@@ -147,7 +148,7 @@ function MainApp() {
 
       if (!hasInitializedView) {
         if (!isSetupDone) {
-          setViewState('ONBOARDING');
+          setViewState('WELCOME');
         } else {
           setViewState('DASHBOARD');
           if (!settings.onboardingCompleted) {
@@ -166,7 +167,7 @@ function MainApp() {
         }
       }
     }
-  }, [settings, isLoading, hasInitializedView, allConsumptions, viewState, updateSettings]);
+  }, [settings, isLoading, hasInitializedView, allConsumptions, viewState, updateSettings, user]);
 
   const handleOpenOnboarding = () => {
     isDeliberateReopenRef.current = true;
@@ -198,6 +199,7 @@ function MainApp() {
       const code = error instanceof Error ? error.message : '';
       const key = code === 'scan_quota_reached' ? 'camera_quota_reached'
         : code === 'sign_in_required' ? 'camera_sign_in_for_scan'
+        : code === 'scanning_unavailable' || code === 'account_service_unavailable' ? 'camera_preview_only'
         : !navigator.onLine ? 'camera_offline' : 'recognition_error_desc';
       setScanError(t(key));
       setCapturedImage(null);
@@ -299,6 +301,23 @@ function MainApp() {
 
           <div className="flex-1 overflow-hidden relative">
             <AnimatePresence mode="wait">
+              {viewState === 'WELCOME' && (
+                <motion.div key="welcome" className="absolute inset-0" exit={{ opacity: 0 }} transition={{ duration: 0.16 }}>
+                  <WelcomeView
+                    onExplore={() => {
+                      setLogMealContext({ meal: 'Snacks', browseCatalog: true });
+                      setCurrentTab('Meals');
+                      setViewState('DASHBOARD');
+                    }}
+                    onJournal={() => setViewState('ACCOUNT')}
+                  />
+                </motion.div>
+              )}
+              {viewState === 'ACCOUNT' && (
+                <motion.div key="account" className="absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <AccountView onBack={() => setViewState('WELCOME')} onContinue={() => setViewState('ONBOARDING')} />
+                </motion.div>
+              )}
               {viewState === 'ONBOARDING' && (
                 <motion.div key="onboarding" className="absolute inset-0 z-50 bg-white" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
                   <OnboardingView 
@@ -307,7 +326,7 @@ function MainApp() {
                       const ownerId = settings.id || 'guest';
                       if (typeof window !== 'undefined') {
                         localStorage.setItem(`mboafit_onboarding_${ownerId}`, 'true');
-                        if (ownerId === 'guest') {
+                        if (!user) {
                           localStorage.setItem('mboafit_onboarding_completed', 'true');
                           localStorage.setItem('dailycal_onboarding_completed', 'true');
                         } else {
@@ -334,7 +353,7 @@ function MainApp() {
                 </motion.div>
               )}
 
-              {viewState === 'DASHBOARD' && (
+              {viewState === 'DASHBOARD' && hasInitializedView && (
                 <motion.div key="dashboard" className="absolute inset-0 flex flex-col" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
                   <div className="flex-1 overflow-y-auto pb-safe">
                     {currentTab === 'Home' && (
@@ -354,6 +373,7 @@ function MainApp() {
                         initialMeal={logMealContext.meal} 
                         initialFood={logMealContext.food} 
                         initialRecord={logMealContext.record} 
+                        browseCatalog={logMealContext.browseCatalog}
                         onBack={() => setCurrentTab('Home')} 
                       />
                     )}

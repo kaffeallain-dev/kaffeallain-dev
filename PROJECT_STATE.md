@@ -51,7 +51,28 @@ No deployment approval has been requested yet because native/device and producti
 - Existing server quotas bound paid analyses. The API advertises the account limit and reports exhaustion with the UTC reset time. Scan results require user-entered grams and use the existing portion scaling for both summary and logging.
 - The standard beta build leaves cloud recognition unconfigured. A staging build can use the public GitHub Actions variables `MBOAFIT_BETA_API_BASE_URL` and `MBOAFIT_BETA_GOOGLE_WEB_CLIENT_ID`. The staging backend must independently enable scanning and configure Gemini credentials server-side. Closing the scan screen stops waiting for the result, but a request already accepted by the server can use a scan. Validate permission denial, capture, switch, backgrounding, photo picker, upload cancellation, quota and two-account isolation on a phone before broader rollout.
 
-- Verified the camera and gallery flow in a 390 × 740 Chromium viewport using a simulated camera device, including permission only on request, track shutdown after capture, corrupt-image recovery, manual fallback and zero guest photo uploads. Browser and API tests do not establish physical Android behavior or live Gemini recognition.
+- Verified in a 390 × 740 Chromium viewport with a simulated camera: opt-in capture, single-camera controls, stream release, corrupt-image recovery, French permission denial and manual fallback with zero photo uploads. Unit tests also checked lens constraints, cancellation and scan portions.
+- Android CI passed lint, all regression suites, web packaging and Gradle assembly. [Download beta 0.1.2](https://github.com/kaffeallain-dev/kaffeallain-dev/actions/runs/45038436242/artifacts/14760632595). GitHub artifact expires November 29, 2026. The checksum-verified archive and extracted APK are in `outputs` at the workspace root. APK SHA-256 `0abba8cad5d93ed5c94ab7c26f892f8ed7c65c0dba065a8f389365e7da77e062`. Device and live provider checks are still pending.
+
+## Cameroon welcome screen and pilot defaults
+
+- New visitors can browse the full English/French-searchable catalog before onboarding or signing in. The welcome screen counts distinct catalog IDs (165 at this checkpoint). The bundled photo is [Ndolé with plantain by 12wams, CC0](https://commons.wikimedia.org/wiki/File:Plat_camerounais_de_ndol%C3%A8_au_plantain.png), resized for mobile. Motion uses the app's existing reduced-motion setting.
+- Food scan review offers half and full reference portions only when the catalog has a gram baseline. Users can enter their own grams. The backend defaults to one scan per account daily when enabled. Actual photo-to-weight estimation requires a separate weighed-meal validation set.
+- Startup now hydrates the initially active guest store and recognizes legacy guest completion flags, protecting returning users from being routed through the welcome flow again. Native Google login still requires an Android registration and a verified phone test. The existing Starter Tier Firebase project showed only a web app registration.
+- Verified local typecheck, production web/server build, full regression command and Capacitor sync. In mobile-size Chromium, verified English/French welcome screens, browsing and logging offline as a guest, the saved meal after reload, and the existing simulated-camera capture, gallery and permission-denial flows. No native APK assembly, live Gemini recognition or Android OAuth test was performed for this change.
+
+## Scan outcome regression fix
+
+- A screenshot from the older AI Studio preview showed a rice-and-beans photo with zero results. The archived scanner converted HTTP and network failures to empty successes. The screenshot alone does not establish which backend error occurred.
+- The working source now requires an explicit food, non-food, or uncertain outcome and validates it on both sides of the API. Contradictory or malformed model responses fail closed. Food matches require user confirmation and support catalog search before entering a portion. The Gemini instruction explicitly handles visible rice with beans and non-food objects, including a foot.
+- Source changes still need to reach the AI Studio preview. A live staging check with the original meal photo and a non-food photo is required to evaluate model accuracy.
+- Typecheck, web/server builds, 18 API tests, and the scan review UI test passed. The API tests exercised HTTP requests with fixture provider responses. The UI test exercised the actual results component with a rice-and-beans suggestion and verified that both empty outcomes offer manual logging without a review action.
+
+## Android beta 0.1.3
+
+- Added a slow moving food image honoring reduced-motion, an explicit Start button, an account choice screen, and access to optional onboarding questions with Skip. Returning users and direct catalog exploration remain supported.
+- Insights labels missing days and calorie estimates explicitly. Meal suggestions are withheld until at least three days have entries and a relevant pattern exists. The existing heuristic insights still require a deeper evidence and accessibility review before general release.
+- Google provider is enabled in Firebase, but the Android OAuth client/signing certificate and physical-device tests remain pending. Cloud meal detection is disabled in the standard beta.
 
 ## October hosted build evidence
 

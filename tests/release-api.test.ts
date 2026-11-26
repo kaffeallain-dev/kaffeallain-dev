@@ -7,7 +7,7 @@ import { createServices } from '../server/services';
 
 const config: ApiConfig = { scansEnabled: true, deletionEnabled: true, dailyLimit: 5, globalLimit: 50, allowedOrigins: ['https://localhost'] };
 const image = Buffer.from([255, 216, 255, 224, 0, 1, 2, 3]).toString('base64');
-const foods = { foods: [{ detectedName: 'rice', confidence: 0.6, estimatedAreaPercentage: 0.5, category: 'starch' }] };
+const foods = { outcome: 'food', foods: [{ detectedName: 'Rice and Beans', confidence: 0.8, estimatedAreaPercentage: 0.8, category: 'meal' }] };
 async function withApi(run: (url: string, calls: any) => Promise<void>, override: Partial<ApiDependencies> = {}, settings = config) {
   const calls = { provider: 0, deletion: [] as string[], finish: 0 };
   const deps: ApiDependencies = {
@@ -38,6 +38,26 @@ test('scan validates input and request IDs before billing', () => withApi(async 
 test('scan validates model output, returns facts and never raw provider errors', () => withApi(async (url, calls) => {
   const result = await scan(url); assert.equal(result.status, 200); assert.deepEqual(await result.json(), foods); assert.equal(calls.provider, 1);
 }));
+test('scan keeps clear non-food and uncertain photos distinct', async () => {
+  for (const outcome of ['non_food', 'uncertain'] as const) {
+    const modelResult = { outcome, foods: [] };
+    await withApi(async url => {
+      const result = await scan(url);
+      assert.equal(result.status, 200);
+      assert.deepEqual(await result.json(), modelResult);
+    }, { detect: async () => modelResult });
+  }
+});
+test('unclassified or contradictory responses are errors, never successful empty scans', async () => {
+  for (const invalid of [{ foods: [] }, { outcome: 'food', foods: [] }, { outcome: 'non_food', foods: foods.foods }]) {
+    await withApi(async (url, calls) => {
+      const result = await scan(url);
+      assert.equal(result.status, 502);
+      assert.deepEqual(await result.json(), { code: 'invalid_ai_response' });
+      assert.equal(calls.finish, 1);
+    }, { detect: async () => invalid });
+  }
+});
 test('AI failure is explicit and records a failed attempt', () => withApi(async (url, calls) => {
   const result = await scan(url); assert.equal(result.status, 502); assert.deepEqual(await result.json(), { code: 'scan_failed' }); assert.equal(calls.finish, 1);
 }, { detect: async () => { throw new Error('secret provider internals'); } }));
@@ -83,9 +103,9 @@ test('CORS only permits configured native origin', () => withApi(async url => {
   const valid = await fetch(url + '/detect-food', { method: 'OPTIONS', headers: { Origin: 'https://localhost' } }); assert.equal(valid.status, 204); assert.equal(valid.headers.get('access-control-allow-origin'), 'https://localhost');
 }));
 test('model facts reject non-finite, out-of-range and oversized responses', () => {
-  assert.throws(() => validateFoods({ foods: [{ ...foods.foods[0], confidence: NaN }] }));
-  assert.throws(() => validateFoods({ foods: [{ ...foods.foods[0], estimatedAreaPercentage: 3 }] }));
-  assert.throws(() => validateFoods({ foods: new Array(21).fill(foods.foods[0]) }));
+  assert.throws(() => validateFoods({ ...foods, foods: [{ ...foods.foods[0], confidence: NaN }] }));
+  assert.throws(() => validateFoods({ ...foods, foods: [{ ...foods.foods[0], estimatedAreaPercentage: 3 }] }));
+  assert.throws(() => validateFoods({ ...foods, foods: new Array(21).fill(foods.foods[0]) }));
 });
 
 // Boundary mock: production services execute their real transactions and deletion order.

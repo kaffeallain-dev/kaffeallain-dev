@@ -11,7 +11,7 @@ export class FoodRecognitionPipeline {
     foods: FoodItemTemplate[],
     signal?: AbortSignal,
   ): Promise<FoodRecognitionResult> {
-    const { detections } = await FoodDetectionEngine.detect({
+    const { detections, outcome } = await FoodDetectionEngine.detect({
       imageUri: image.image,
       imageWidth: image.width,
       imageHeight: image.height,
@@ -26,16 +26,12 @@ export class FoodRecognitionPipeline {
       searchKeywords: [...(food.aliases ?? []), food.name.toLowerCase()],
       category: food.category,
     })));
-    const byId = new Map(foods.map(food => [food.id, food]));
-
     return {
+      outcome,
       image,
       items: detections.map(detection => {
         const match = matcher.matchFood(FoodIntelligenceEngine.interpret(detection));
-        const food = detection.confidence >= 0.6 && match.decision === 'HIGH_CONFIDENCE'
-          ? byId.get(match.foodKnowledgeId ?? '')
-          : undefined;
-        return { detectionId: detection.detectionId, detectedLabel: detection.foodName, match, food };
+        return { detectionId: detection.detectionId, detectedLabel: detection.foodName, match };
       }),
     };
   }

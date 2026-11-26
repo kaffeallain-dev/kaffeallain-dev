@@ -134,7 +134,7 @@ export default function AnalyticsView({ onLogFood }: { onLogFood: (food?: any) =
      if (currentSummary.weeklyPattern.vegetableTrend === 'Needs Improvement') return 'Vegetables (Fiber & Vitamins)';
      if (currentSummary.weeklyPattern.proteinTrend === 'Average' && settings.profile?.primaryGoal === 'Build Muscle') return 'Protein';
      if (currentSummary.weeklyPattern.sugaryDrinkTrend === 'High') return 'Water (Hydration)';
-     return 'Healthy Fats & Minerals';
+     return '';
   };
   const gap = getNutritionGap();
 
@@ -504,6 +504,10 @@ export default function AnalyticsView({ onLogFood }: { onLogFood: (food?: any) =
         </AnimatePresence>
       </header>
 
+      <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm leading-relaxed text-emerald-900">
+        {t('insights_data_note', { days: daysWithData })}
+      </p>
+
       {/* What Changed Banner */}
       <AnimatePresence>
         {recentLog && isMeaningfulChange && previousSummary && lastLog && (
@@ -587,7 +591,7 @@ export default function AnalyticsView({ onLogFood }: { onLogFood: (food?: any) =
         </motion.div>
 
         {/* Next Best Meal Recommendation */}
-        {nextMeal && nextMealAnalysis && (
+        {daysWithData >= 3 && gap && nextMeal && nextMealAnalysis && (
           <div className="bg-white border border-gray-100 p-6 rounded-3xl mt-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-gray-900 text-sm uppercase tracking-wider flex items-center gap-2">
