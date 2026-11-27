@@ -1,0 +1,91 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile and dietary settings",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "dailyGoal": { "type": "number" },
+        "onboardingCompleted": { "type": "boolean" },
+        "profile": { "type": "object" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "dailyGoal"]
+    },
+    "MealRecord": {
+      "title": "MealRecord",
+      "description": "Logged food consumption entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 200 },
+        "calories": { "type": "number" },
+        "protein": { "type": "number" },
+        "carbs": { "type": "number" },
+        "fat": { "type": "number" },
+        "servings": { "type": "number" },
+        "mealCategory": { "type": "string", "maxLength": 50 },
+        "timestamp": { "type": "number" },
+        "foodId": { "type": "string", "maxLength": 128 },
+        "servingSizeText": { "type": "string", "maxLength": 100 },
+        "createdAt": { "type": "number" }
+      },
+      "required": [
+        "id",
+        "userId",
+        "name",
+        "calories",
+        "protein",
+        "carbs",
+        "fat",
+        "servings",
+        "mealCategory",
+        "timestamp"
+      ]
+    },
+    "CustomFood": {
+      "title": "CustomFood",
+      "description": "User custom food template",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 200 },
+        "calories": { "type": "number" },
+        "protein": { "type": "number" },
+        "carbs": { "type": "number" },
+        "fat": { "type": "number" },
+        "servingSizeText": { "type": "string", "maxLength": 100 },
+        "createdAt": { "type": "number" },
+        "isCustom": { "type": "boolean" }
+      },
+      "required": [
+        "id",
+        "userId",
+        "name",
+        "calories",
+        "protein",
+        "carbs",
+        "fat",
+        "servingSizeText",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Per-user root profile and configuration document"
+    },
+    "/users/{userId}/meals/{mealId}": {
+      "schema": "MealRecord",
+      "description": "Individual meal consumption records owned by user"
+    },
+    "/users/{userId}/customFoods/{foodId}": {
+      "schema": "CustomFood",
+      "description": "Custom food templates created by user"
+    }
+  }
+}

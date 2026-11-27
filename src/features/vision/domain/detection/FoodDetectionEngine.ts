@@ -1,17 +1,19 @@
-import { DetectedFood, FoodDetectionRequest, FoodDetectionResponse } from './DetectedFood';
-import { PortionEstimationEngine } from '../estimation/PortionEstimationEngine';
+import {
+  DetectedFood,
+  FoodDetectionRequest,
+  FoodDetectionResponse,
+  FoodDetectionServiceError
+} from './DetectedFood';
 
 export class FoodDetectionEngine {
   private static readonly CONFIDENCE_THRESHOLD = 0.6;
-
+  
   /**
    * Initializes the local ML models (e.g., TFLite).
    * Call this during app startup.
    */
   public static async initializeModel(): Promise<void> {
-    // Load local TFLite model for Cameroonian foods, fruits, vegetables, drinks, mixed plates
     console.log("[FoodDetectionEngine] Loading local TFLite model...");
-    // Mock initialization delay
     await new Promise(resolve => setTimeout(resolve, 500));
     console.log("[FoodDetectionEngine] Local model loaded.");
   }
@@ -19,63 +21,43 @@ export class FoodDetectionEngine {
   /**
    * Detects foods in the provided image using a cascading approach:
    * 1. Try local TFLite model.
-   * 2. If confidence is too low or items are unknown, fallback to Cloud Vision API.
-   *
-   * Portion estimation always goes through PortionEstimationEngine
-   * (density-table based, deterministic) — the single portion estimator used
-   * everywhere in the pipeline.
+   * 2. If confidence is too low or no local detections exist, call Cloud Vision API.
+   *    Never turns a failed HTTP request, network error, or malformed response into an empty detection.
    */
   public static async detect(request: FoodDetectionRequest): Promise<FoodDetectionResponse> {
     const startTime = Date.now();
-
+    
     try {
-      // 1. Run local inference (currently a stub returning [] until a TFLite
-      //    model is bundled — see TODO in runLocalInference).
+      // 1. Run local inference
       let detections = await this.runLocalInference(request);
       let source: 'LOCAL_TFLITE' | 'CLOUD_VISION' = 'LOCAL_TFLITE';
 
       // 2. Check if we need cloud fallback
-      const needsCloud = detections.length === 0 ||
+      const needsCloud = detections.length === 0 || 
                          detections.some(d => d.confidence < this.CONFIDENCE_THRESHOLD || d.isUnknown);
 
-      if (needsCloud && request.base64Data) {
-        console.log("[FoodDetectionEngine] Low confidence or unknown detected. Falling back to Cloud API.");
-        const cloudDetections = await this.runCloudInference(request);
-
-        // Merge or replace detections. For simplicity, we replace if cloud finds something.
-        if (cloudDetections.length > 0) {
-          detections = cloudDetections;
-          source = 'CLOUD_VISION';
+      if (needsCloud) {
+        if (!request.base64Data) {
+          throw new FoodDetectionServiceError(
+            "Unable to read photo data for food analysis. Please retake the photo or log your meal manually.",
+            'MISSING_IMAGE',
+            undefined,
+            false
+          );
         }
+
+        const cloudDetections = await this.runCloudInference(request);
+        detections = cloudDetections;
+        source = 'CLOUD_VISION';
       }
 
-      // 3. Estimate portion and weight for each detection with the single
-      //    deterministic estimator (no random values).
-      const finalDetections = detections.map(detection => {
-        // If portion/weight are already estimated accurately by a 3D/depth model, skip basic estimation
-        if (detection.estimatedWeight > 0) {
-          return detection;
-        }
-
-        const portion = PortionEstimationEngine.estimatePortion(
-          detection.foodName,
-          detection.boundingBox,
-          request.imageWidth,
-          request.imageHeight,
-          false // no reference object available at the detection stage
-        );
-
-        const portionLabel: DetectedFood['portion'] =
-          portion.estimatedWeight < 200 ? 'Small'
-          : portion.estimatedWeight > 400 ? 'Large'
-          : 'Medium';
-
-        return {
-          ...detection,
-          portion: portionLabel,
-          estimatedWeight: portion.estimatedWeight
-        };
-      });
+      // 3. Do NOT fabricate portion weights from a single 2D photo.
+      // Food identity detection stays strictly separated from user-confirmed portion weight.
+      const finalDetections = detections.map(detection => ({
+        ...detection,
+        portion: null,
+        estimatedWeight: null
+      }));
 
       const processingTimeMs = Date.now() - startTime;
 
@@ -86,75 +68,150 @@ export class FoodDetectionEngine {
       };
 
     } catch (error) {
+      if (error instanceof FoodDetectionServiceError) {
+        throw error;
+      }
       console.error("[FoodDetectionEngine] Detection failed:", error);
-      throw new Error("Failed to process image for food detection.");
+      throw new FoodDetectionServiceError(
+        error instanceof Error && error.message
+          ? error.message
+          : "Failed to process image for food detection.",
+        'NETWORK_ERROR',
+        undefined,
+        true
+      );
     }
   }
 
   /**
    * Runs the on-device TFLite model for object detection.
    */
-  private static async runLocalInference(request: FoodDetectionRequest): Promise<DetectedFood[]> {
-    // TODO: Implement actual TFLite inference here using 'react-native-fast-tflite' or similar
-    // Native bindings would process the tensor data and return boxes + classes
-
-    // Mock implementation for architecture demonstration
-    return [
-       // {
-       //   detectionId: 'local-123',
-       //   foodName: 'ndole',
-       //   confidence: 0.85,
-       //   boundingBox: { xMin: 10, yMin: 10, xMax: 200, yMax: 200 },
-       //   portion: 'Medium',
-       //   estimatedWeight: 0,
-       //   isUnknown: false
-       // }
-    ];
+  private static async runLocalInference(_request: FoodDetectionRequest): Promise<DetectedFood[]> {
+    return [];
   }
 
   /**
-   * Runs cloud-based vision AI (MboaFit server -> Gemini).
-   * Sends the shared-secret header when the client build provides one
-   * (VITE_INTERNAL_API_SECRET); the server skips the check when it has no
-   * secret configured (local dev).
+   * Runs cloud-based vision AI via the server proxy (/api/detect-food).
+   * Throws FoodDetectionServiceError on any network failure, non-2xx HTTP status, or invalid payload.
    */
   private static async runCloudInference(request: FoodDetectionRequest): Promise<DetectedFood[]> {
-     if (!request.base64Data) return [];
+    if (!request.base64Data) {
+      throw new FoodDetectionServiceError(
+        "Missing image data for food analysis.",
+        'MISSING_IMAGE',
+        undefined,
+        false
+      );
+    }
 
-     try {
-       const internalSecret = (import.meta as any).env?.VITE_INTERNAL_API_SECRET as string | undefined;
+    let response: Response;
+    try {
+      response = await fetch("/api/detect-food", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          imageBase64: request.base64Data,
+          mimeType: request.mimeType || "image/jpeg"
+        })
+      });
+    } catch (error) {
+      console.error("[FoodDetectionEngine] Cloud inference network error:", error);
+      throw new FoodDetectionServiceError(
+        "Could not connect to the food recognition service. Please check your connection and retry, or log your meal manually.",
+        'NETWORK_ERROR',
+        undefined,
+        true
+      );
+    }
 
-       const response = await fetch("/api/detect-food", {
-         method: "POST",
-         headers: {
-           "Content-Type": "application/json",
-           ...(internalSecret ? { "x-internal-secret": internalSecret } : {})
-         },
-         body: JSON.stringify({ imageBase64: request.base64Data })
-       });
+    if (!response.ok) {
+      let serverMessage = "";
+      try {
+        const rawText = await response.text();
+        if (rawText) {
+          try {
+            const parsed = JSON.parse(rawText);
+            if (typeof parsed?.error === "string" && parsed.error.trim().length > 0) {
+              serverMessage = parsed.error.trim();
+            } else {
+              serverMessage = rawText.trim();
+            }
+          } catch {
+            serverMessage = rawText.trim();
+          }
+        }
+      } catch {
+        // Ignore body read error and fall back to status text
+      }
 
-       if (!response.ok) {
-         console.error("[FoodDetectionEngine] Cloud inference failed:", await response.text());
-         return [];
-       }
+      const fallbackMessage = response.status === 429
+        ? "Food recognition is temporarily busy. Please wait a moment and retry, or log your meal manually."
+        : response.status >= 500
+          ? "Food recognition service is temporarily unavailable. Please retry or log your meal manually."
+          : `Food recognition request failed (HTTP ${response.status}). Please retry or log your meal manually.`;
 
-       const result = await response.json();
-       if (result.foods && Array.isArray(result.foods)) {
-         return result.foods.map((food: any, idx: number) => ({
-           detectionId: `cloud-${idx}`,
-           foodName: food.detectedName,
-           confidence: food.confidence,
-           boundingBox: { xMin: 0, yMin: 0, xMax: 100, yMax: 100 }, // Mock bounding box since AI doesn't provide it easily
-           portion: "Medium",
-           estimatedWeight: 0, // 0 will let the estimator above fill it in deterministically
-           isUnknown: food.confidence < this.CONFIDENCE_THRESHOLD,
-           category: food.category
-         }));
-       }
-     } catch (e) {
-       console.error("[FoodDetectionEngine] Cloud inference fetch error:", e);
-     }
+      console.error(`[FoodDetectionEngine] Cloud inference HTTP ${response.status}:`, serverMessage || fallbackMessage);
+      throw new FoodDetectionServiceError(
+        serverMessage || fallbackMessage,
+        'HTTP_ERROR',
+        response.status,
+        response.status >= 500 || response.status === 429
+      );
+    }
 
-     return [];
+    let result: any;
+    try {
+      result = await response.json();
+    } catch (error) {
+      console.error("[FoodDetectionEngine] Failed to parse cloud inference JSON:", error);
+      throw new FoodDetectionServiceError(
+        "Food recognition returned an invalid response. Please retry or log your meal manually.",
+        'INVALID_RESPONSE',
+        response.status,
+        true
+      );
+    }
+
+    if (!result || !Array.isArray(result.foods)) {
+      console.error("[FoodDetectionEngine] Unexpected cloud inference payload:", result);
+      throw new FoodDetectionServiceError(
+        "Food recognition returned an unexpected response format. Please retry or log your meal manually.",
+        'INVALID_RESPONSE',
+        response.status,
+        true
+      );
+    }
+
+    const imgW = request.imageWidth > 0 ? request.imageWidth : 640;
+    const imgH = request.imageHeight > 0 ? request.imageHeight : 640;
+
+    return result.foods
+      .filter((food: any) => food && typeof food.detectedName === "string" && food.detectedName.trim().length > 0)
+      .map((food: any, idx: number) => {
+        const rawConf = typeof food.confidence === "number" && Number.isFinite(food.confidence)
+          ? food.confidence
+          : 0.5;
+        const confidence = Math.max(0, Math.min(1, rawConf));
+
+        const rawArea = typeof food.estimatedAreaPercentage === "number" && Number.isFinite(food.estimatedAreaPercentage)
+          ? Math.max(0.05, Math.min(0.85, food.estimatedAreaPercentage))
+          : 0.25;
+        const scale = Math.sqrt(rawArea);
+        const boxW = Math.round(imgW * scale);
+        const boxH = Math.round(imgH * scale);
+
+        return {
+          detectionId: `cloud-${idx}`,
+          foodName: food.detectedName.trim(),
+          confidence,
+          boundingBox: { xMin: 0, yMin: 0, xMax: boxW, yMax: boxH },
+          portion: null,
+          estimatedWeight: null,
+          isUnknown: confidence < this.CONFIDENCE_THRESHOLD,
+          category: typeof food.category === "string" ? food.category : undefined
+        };
+      });
   }
 }

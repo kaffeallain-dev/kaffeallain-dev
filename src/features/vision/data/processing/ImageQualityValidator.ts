@@ -51,8 +51,11 @@ export class ImageQualityValidator {
   }
 
   public static async analyzeImage(dataUrl: string): Promise<{ blurScore: number; brightnessScore: number; quality: number }> {
+    if (typeof Image === 'undefined' || typeof document === 'undefined') {
+      return { blurScore: 500, brightnessScore: 120, quality: 1.0 };
+    }
     try {
-      return new Promise((resolve, reject) => {
+      return await new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');

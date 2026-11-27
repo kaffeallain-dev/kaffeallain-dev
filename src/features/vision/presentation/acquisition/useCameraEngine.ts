@@ -20,28 +20,56 @@ export function useCameraEngine() {
     stream: null
   });
 
+  const isMountedRef = useRef<boolean>(true);
+  const activeStreamRef = useRef<MediaStream | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      if (activeStreamRef.current) {
+        CameraEngine.stopTracks(activeStreamRef.current);
+        activeStreamRef.current = null;
+      }
+    };
+  }, []);
+
   const requestPermissions = useCallback(async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const ac = new AbortController();
+    abortControllerRef.current = ac;
+
     try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        console.warn("getUserMedia is not supported or not available in this environment.");
-        setState(prev => ({ ...prev, hasPermission: false, status: 'UNAVAILABLE' }));
+      const stream = await CameraEngine.requestStream(state.facingMode, { signal: ac.signal });
+
+      // If unmounted or cancelled while getUserMedia was resolving (late stream arrival):
+      if (!isMountedRef.current || ac.signal.aborted) {
+        CameraEngine.stopTracks(stream);
         return;
       }
-      
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: state.facingMode } 
-      });
+
+      if (activeStreamRef.current && activeStreamRef.current !== stream) {
+        CameraEngine.stopTracks(activeStreamRef.current);
+      }
+      activeStreamRef.current = stream;
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
       setState(prev => ({ ...prev, hasPermission: true, status: 'GRANTED', stream }));
     } catch (err: any) {
-      console.warn("Camera permission denied or not available", err);
-      if (err.name === 'NotAllowedError') {
-        setState(prev => ({ ...prev, hasPermission: false, status: 'DENIED' }));
-      } else {
-        setState(prev => ({ ...prev, hasPermission: false, status: 'UNAVAILABLE' }));
+      if (ac.signal.aborted || !isMountedRef.current) {
+        return;
       }
+      console.warn("Camera permission denied or not available", err);
+      const mappedStatus = CameraEngine.mapAcquisitionError(err);
+      setState(prev => ({ ...prev, hasPermission: false, status: mappedStatus }));
     }
   }, [state.facingMode]);
 
@@ -54,24 +82,27 @@ export function useCameraEngine() {
   useEffect(() => {
     return () => {
       if (state.stream) {
-        state.stream.getTracks().forEach(track => track.stop());
+        CameraEngine.stopTracks(state.stream);
       }
     };
   }, [state.stream]);
 
   const toggleCameraType = useCallback(() => {
-    if (state.stream) {
-      state.stream.getTracks().forEach(track => track.stop());
+    if (activeStreamRef.current) {
+      CameraEngine.stopTracks(activeStreamRef.current);
+      activeStreamRef.current = null;
     }
     setState(prev => ({
       ...prev,
+      stream: null,
       facingMode: prev.facingMode === 'user' ? 'environment' : 'user'
     }));
-    // We defer requesting permission to next render or explicit call
     setTimeout(() => {
-      requestPermissions();
+      if (isMountedRef.current) {
+        requestPermissions();
+      }
     }, 100);
-  }, [state.stream, requestPermissions]);
+  }, [requestPermissions]);
 
   const takePicture = useCallback(async (options?: CameraEngineOptions): Promise<ProcessedImageResult | null> => {
     if (state.isProcessing || !videoRef.current) return null;
@@ -112,3 +143,5 @@ export function useCameraEngine() {
     pickFromGallery
   };
 }
+
+export { CameraSession } from './CameraEngine';

@@ -33,6 +33,7 @@ export interface FoodItemTemplate {
   sodium?: number;
   servingSizeText: string; // e.g. "1 apple (182g)", "100g"
   confidenceLevel?: 'High' | 'Medium' | 'Low';
+  preparationMethod?: string;
   preparationNotes?: string;
   popularity?: 'Very Common' | 'Common' | 'Occasional' | 'Rare';
   bestFor?: string[];
@@ -65,6 +66,8 @@ export interface ConsumptionRecord {
   servings: number;
   mealCategory: MealCategory;
   timestamp: number;
+  foodId?: string;
+  servingSizeText?: string;
 }
 
 /** A single timestamped body-weight measurement, used for trend analysis. */
@@ -85,13 +88,19 @@ export interface UserProfile {
   primaryGoal?: 'Lose Weight' | 'Maintain Weight' | 'Gain Weight' | 'Build Muscle' | 'Eat Healthier';
   healthConditions?: string[];
   preferences?: string[];
+  onboardingCompleted?: boolean;
 }
 
 export interface UserSettings {
   id: string;
   dailyGoal: number;
   profile?: UserProfile;
+  onboardingCompleted?: boolean;
+  language?: 'en' | 'fr';
+  verifiedOwnerUid?: string;
 }
+
+export type AppLanguage = 'en' | 'fr';
 
 
 export interface FoodKnowledge {

@@ -56,9 +56,40 @@ export class FoodAliasRegistry {
     // Plantain
     { alias: 'plantain', normalizedAlias: 'plantain', canonicalFoodId: 'st10', aliasType: 'ENGLISH', confidence: 'HIGH' },
     
-    // Rice
+    // Rice & Rice and Beans
     { alias: 'rice', normalizedAlias: 'rice', canonicalFoodId: 'st15', aliasType: 'ENGLISH', confidence: 'HIGH' },
+    { alias: 'white rice', normalizedAlias: 'white rice', canonicalFoodId: 'st15', aliasType: 'ENGLISH', confidence: 'HIGH' },
+    { alias: 'boiled rice', normalizedAlias: 'boiled rice', canonicalFoodId: 'st15', aliasType: 'ENGLISH', confidence: 'HIGH' },
+    { alias: 'steamed rice', normalizedAlias: 'steamed rice', canonicalFoodId: 'st15', aliasType: 'ENGLISH', confidence: 'HIGH' },
+    { alias: 'riz', normalizedAlias: 'riz', canonicalFoodId: 'st15', aliasType: 'FRENCH', confidence: 'HIGH' },
+    { alias: 'riz blanc', normalizedAlias: 'riz blanc', canonicalFoodId: 'st15', aliasType: 'FRENCH', confidence: 'HIGH' },
     { alias: 'fried rice', normalizedAlias: 'fried rice', canonicalFoodId: 'cp4', aliasType: 'ENGLISH', confidence: 'HIGH' },
+    { alias: 'rice and beans', normalizedAlias: 'rice and beans', canonicalFoodId: 'cp9', aliasType: 'ENGLISH', confidence: 'HIGH' },
+    { alias: 'rice & beans', normalizedAlias: 'rice beans', canonicalFoodId: 'cp9', aliasType: 'ENGLISH', confidence: 'HIGH' },
+    { alias: 'beans and rice', normalizedAlias: 'beans and rice', canonicalFoodId: 'cp9', aliasType: 'ENGLISH', confidence: 'HIGH' },
+    { alias: 'beans & rice', normalizedAlias: 'beans rice', canonicalFoodId: 'cp9', aliasType: 'ENGLISH', confidence: 'HIGH' },
+    { alias: 'riz haricot', normalizedAlias: 'riz haricot', canonicalFoodId: 'cp9', aliasType: 'FRENCH', confidence: 'HIGH' },
+    { alias: 'riz et haricots', normalizedAlias: 'riz et haricots', canonicalFoodId: 'cp9', aliasType: 'FRENCH', confidence: 'HIGH' },
+    { alias: 'riz aux haricots', normalizedAlias: 'riz aux haricots', canonicalFoodId: 'cp9', aliasType: 'FRENCH', confidence: 'HIGH' },
+    { alias: 'waakye', normalizedAlias: 'waakye', canonicalFoodId: 'cp9', aliasType: 'REGIONAL', confidence: 'HIGH' },
+    { alias: 'wake', normalizedAlias: 'wake', canonicalFoodId: 'cp9', aliasType: 'REGIONAL', confidence: 'HIGH' },
+
+    // Beans (Ambiguous across catalogue bean dishes so user chooses & confirms the right dish)
+    { alias: 'beans', normalizedAlias: 'beans', canonicalFoodId: 'cp9', aliasType: 'ENGLISH', confidence: 'MEDIUM' },
+    { alias: 'beans', normalizedAlias: 'beans', canonicalFoodId: 'cp6', aliasType: 'ENGLISH', confidence: 'MEDIUM' },
+    { alias: 'beans', normalizedAlias: 'beans', canonicalFoodId: 'td1', aliasType: 'ENGLISH', confidence: 'MEDIUM' },
+    { alias: 'stewed beans', normalizedAlias: 'stewed beans', canonicalFoodId: 'cp9', aliasType: 'ENGLISH', confidence: 'MEDIUM' },
+    { alias: 'stewed beans', normalizedAlias: 'stewed beans', canonicalFoodId: 'cp6', aliasType: 'ENGLISH', confidence: 'MEDIUM' },
+    { alias: 'stewed beans', normalizedAlias: 'stewed beans', canonicalFoodId: 'td1', aliasType: 'ENGLISH', confidence: 'MEDIUM' },
+    { alias: 'boiled beans', normalizedAlias: 'boiled beans', canonicalFoodId: 'cp9', aliasType: 'ENGLISH', confidence: 'MEDIUM' },
+    { alias: 'boiled beans', normalizedAlias: 'boiled beans', canonicalFoodId: 'cp6', aliasType: 'ENGLISH', confidence: 'MEDIUM' },
+    { alias: 'red beans', normalizedAlias: 'red beans', canonicalFoodId: 'cp9', aliasType: 'ENGLISH', confidence: 'MEDIUM' },
+    { alias: 'red beans', normalizedAlias: 'red beans', canonicalFoodId: 'cp6', aliasType: 'ENGLISH', confidence: 'MEDIUM' },
+    { alias: 'haricot', normalizedAlias: 'haricot', canonicalFoodId: 'cp9', aliasType: 'FRENCH', confidence: 'MEDIUM' },
+    { alias: 'haricot', normalizedAlias: 'haricot', canonicalFoodId: 'cp6', aliasType: 'FRENCH', confidence: 'MEDIUM' },
+    { alias: 'haricot', normalizedAlias: 'haricot', canonicalFoodId: 'td1', aliasType: 'FRENCH', confidence: 'MEDIUM' },
+    { alias: 'haricots', normalizedAlias: 'haricots', canonicalFoodId: 'cp9', aliasType: 'FRENCH', confidence: 'MEDIUM' },
+    { alias: 'haricots', normalizedAlias: 'haricots', canonicalFoodId: 'cp6', aliasType: 'FRENCH', confidence: 'MEDIUM' },
     
     // Fish
     // Note: 'fish' itself is too broad to map to a single canonical fish. It's ambiguous.

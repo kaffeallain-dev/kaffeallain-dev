@@ -3,6 +3,7 @@ import { FoodKnowledge, AiCoachingTip, GoalCompatibilityRating } from '../../../
 export interface RecognizedFoodItem {
   foodKnowledge: FoodKnowledge;
   estimatedWeightGrams: number;
+  referenceServingGrams?: number | null;
 }
 
 export interface MealNutritionTotals {

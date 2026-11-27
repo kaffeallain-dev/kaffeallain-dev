@@ -62,9 +62,11 @@ export class AiCoachEngine {
     return uniqueTips;
   }
 
-  private static matchesGoal(tipGoal: string, userGoal: string): boolean {
-    const normalizedTip = tipGoal.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const normalizedUser = userGoal.toLowerCase().replace(/[^a-z0-9]/g, '');
+  private static matchesGoal(tipGoal?: string | null, userGoal?: string | null): boolean {
+    if (!tipGoal || !userGoal) return false;
+    const normalizedTip = String(tipGoal).toLowerCase().replace(/[^a-z0-9]/g, '');
+    const normalizedUser = String(userGoal).toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!normalizedTip || !normalizedUser) return false;
     return normalizedTip.includes(normalizedUser) || normalizedUser.includes(normalizedTip);
   }
 }

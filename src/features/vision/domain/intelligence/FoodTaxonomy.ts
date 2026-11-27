@@ -42,8 +42,22 @@ export class FoodTaxonomy {
     const normalizedCat = rawCategory ? FoodAliasRegistry.normalize(rawCategory) : '';
 
     
+    // Mixed combo meals combining starch + legume (e.g. Rice and Beans, Beans and Plantain, Beans and Bread)
+    const hasLegumeTerm = normalizedName.includes('bean') || normalizedName.includes('haricot');
+    const hasComboStarchTerm =
+      normalizedName.includes('rice') ||
+      normalizedName.includes('riz') ||
+      normalizedName.includes('plantain') ||
+      normalizedName.includes('bread') ||
+      normalizedName.includes('pain') ||
+      normalizedName.includes('puff puff') ||
+      normalizedName.includes('corn');
+    if (hasLegumeTerm && hasComboStarchTerm) {
+      return { category: 'MIXED_MEAL' };
+    }
+
     // First, try matching based on food name keywords.
-    if (normalizedName.includes('rice')) return { category: 'STARCH', family: 'RICE' };
+    if (normalizedName.includes('rice') || normalizedName === 'riz' || normalizedName.includes('riz ')) return { category: 'STARCH', family: 'RICE' };
     if (normalizedName.includes('plantain')) return { category: 'STARCH', family: 'PLANTAIN' };
     // Explicitly Ambiguous Queries (Must evaluate to UNKNOWN to avoid blocking valid alias candidates)
     if (['koki', 'fufu', 'couscous', 'achu'].includes(normalizedName)) return { category: 'UNKNOWN' };
@@ -72,7 +86,7 @@ export class FoodTaxonomy {
     if (normalizedName.includes('soup')) return { category: 'SOUP', family: 'OTHER_SOUP' };
     if (normalizedName.includes('stew') || normalizedName.includes('sauce') || normalizedName.includes('bongo tjobi')) return { category: 'STEW', family: 'TOMATO_BASED' };
 
-    if (normalizedName.includes('bean') || normalizedName.includes('koki') || normalizedName.includes('ekwang') || normalizedName.includes('lentil') || normalizedName.includes('pea')) return { category: 'LEGUME', family: 'LEGUME_PROTEIN' };
+    if (normalizedName.includes('bean') || normalizedName.includes('haricot') || normalizedName.includes('koki') || normalizedName.includes('ekwang') || normalizedName.includes('lentil') || normalizedName.includes('pea')) return { category: 'LEGUME', family: 'LEGUME_PROTEIN' };
 
     if (normalizedName.includes('groundnut') || normalizedName.includes('peanut') || normalizedName.includes('tiger nut') || normalizedName.includes('walnut') || normalizedName.includes('kuli kuli')) return { category: 'SNACK', family: 'NUT' };
     if (normalizedName.includes('cand') || normalizedName.includes('chocolate')) return { category: 'SNACK', family: 'CANDY' };
@@ -142,6 +156,10 @@ export class FoodTaxonomy {
     }
 
     if ((qCat === 'PROTEIN' && tCat === 'MIXED_MEAL') || (qCat === 'MIXED_MEAL' && tCat === 'PROTEIN')) {
+       return 'CATEGORY_COMPATIBLE';
+    }
+
+    if ((qCat === 'LEGUME' && tCat === 'MIXED_MEAL') || (qCat === 'MIXED_MEAL' && tCat === 'LEGUME')) {
        return 'CATEGORY_COMPATIBLE';
     }
 
