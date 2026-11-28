@@ -1,4 +1,4 @@
-import { FoodItemTemplate, CompositeMealTemplate } from '../types';
+import { FoodItemTemplate, CompositeMealTemplate, FoodCategory } from '../types';
 import { commonFoods } from './foodDatabase';
 
 const getFoodByName = (name: string): FoodItemTemplate | undefined => {
@@ -61,7 +61,7 @@ export const getCompositeMeals = (): CompositeMealTemplate[] => {
         isComposite: true,
         components: def.componentNames,
         foodType: 'Combo',
-        category: def.category,
+        category: def.category as FoodCategory,
         servingSizeText: def.servingSizeText,
         popularity: 'Common',
         confidenceLevel: 'Medium',
